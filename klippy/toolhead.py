@@ -10,6 +10,16 @@ import mcu, chelper, kinematics.extruder
 #   mm/second), _v2 is velocity squared (mm^2/s^2), _t is time (in
 #   seconds), _r is ratio (scalar between 0.0 and 1.0)
 
+# version fo trapq for G1J moves
+class AccelQueue:
+    def __init__(self):
+        self.queue = []
+    def append(self):
+        pass
+    
+
+
+
 # Class to track each move request
 class Move:
     def __init__(self, toolhead, start_pos, end_pos, speed):
@@ -407,7 +417,7 @@ class ToolHead:
         self.commanded_pos[:] = newpos
         self.kin.set_position(newpos, homing_axes)
         self.printer.send_event("toolhead:set_position")
-    def move(self, newpos, speed):
+    def move(self, newpos, speed, acceleration, jerk):
         move = Move(self, self.commanded_pos, newpos, speed)
         if not move.move_d:
             return
@@ -416,7 +426,13 @@ class ToolHead:
         if move.axes_d[3]:
             self.extruder.check_move(move)
         self.commanded_pos[:] = move.end_pos
-        self.move_queue.add_move(move)
+
+        is_g1j = acceleration is not None
+        if is_g1j:
+            if math.sqrt(move.max_cruise_v2) != speed:
+                 raise self.printer.command_error("G1J specified speed exceeds a limit")
+        else:
+            self.move_queue.add_move(move)
         if self.print_time > self.need_check_stall:
             self._check_stall()
     def manual_move(self, coord, speed):

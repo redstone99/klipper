@@ -33,6 +33,7 @@ class GCodeMove:
             desc = getattr(self, 'cmd_' + cmd + '_help', None)
             gcode.register_command(cmd, func, False, desc)
         gcode.register_command('G0', self.cmd_G1)
+        gcode.register_command('G1J', self.cmd_G1J)
         gcode.register_command('M114', self.cmd_M114, True)
         gcode.register_command('GET_POSITION', self.cmd_GET_POSITION, True,
                                desc=self.cmd_GET_POSITION_help)
@@ -111,6 +112,10 @@ class GCodeMove:
             self.last_position = self.position_with_transform()
     # G-Code movement commands
     def cmd_G1(self, gcmd):
+        self.cmd_G1common(gcmd, False)
+    def cmd_G1J(self, gcmd):
+        self.cmd_G1common(gcmd, True)
+    def cmd_G1common(self, gcmd, withAccel):
         # Move
         params = gcmd.get_command_parameters()
         try:
@@ -131,16 +136,32 @@ class GCodeMove:
                 else:
                     # value relative to base coordinate position
                     self.last_position[3] = v + self.base_position[3]
-            if 'F' in params:
+            if not withAccel and 'F' in params:
                 gcode_speed = float(params['F'])
                 if gcode_speed <= 0.:
                     raise gcmd.error("Invalid speed in '%s'"
                                      % (gcmd.get_commandline(),))
                 self.speed = gcode_speed * self.speed_factor
+            if withAccel:
+                # will use 0 vs None to distinguish in the move code if it's g1 or g1j move
+                acceleration = 0
+                jerk = 0
+                if 'Acc' in params:
+                    acceleration = float(params['Acc']) * 60. * self.speed_factor
+                if 'Jer' in params:
+                    if not 'Acc' in params:
+                        raise gcmd.error("Jerk specified without acceleration in '%s'"
+                                         % (gcmd.get_commandline(),))
+                    jerk = float(params['Jer'])
+                if 'Vel' in params:
+                    self.speed = float(params['Vel'])
+            else:
+                acceleration = None
+                jerk = None
         except ValueError as e:
             raise gcmd.error("Unable to parse move '%s'"
                              % (gcmd.get_commandline(),))
-        self.move_with_transform(self.last_position, self.speed)
+        self.move_with_transform(self.last_position, self.speed, acceleration, jerk)
     # G-Code coordinate manipulation
     def cmd_G20(self, gcmd):
         # Set units to inches
