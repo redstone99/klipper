@@ -5,28 +5,31 @@
 # This file may be distributed under the terms of the GNU GPLv3 license.
 import math, logging, importlib
 import mcu, chelper, kinematics.extruder
-
+from enum import Enum
+class MoveType(Enum):
+    trapezoidal=1
+    withJerk=2
 # Common suffixes: _d is distance (in mm), _v is velocity (in
 #   mm/second), _v2 is velocity squared (mm^2/s^2), _t is time (in
 #   seconds), _r is ratio (scalar between 0.0 and 1.0)
 
-# version fo trapq for G1J moves
-class AccelQueue:
-    def __init__(self):
-        self.queue = []
-    def append(self):
-        pass
-    
-
-
-
 # Class to track each move request
+# Note when jerk is not None, this is not a trapezoidal move. It is just a single accel segment.
 class Move:
-    def __init__(self, toolhead, start_pos, end_pos, speed):
+    def __init__(self, toolhead, start_pos, end_pos, speed, accel_start, jerk,
+                 ext_accel_start, ext_jerk, ext_check_vel_end):
         self.toolhead = toolhead
         self.start_pos = tuple(start_pos)
         self.end_pos = tuple(end_pos)
-        self.accel = toolhead.max_accel
+        if jerk is not None:
+            self.moveType = MoveType.withJerk
+        else:
+            self.moveType = MoveType.trapezoidal
+        self.accel = accel_start if accel_start is not None else toolhead.max_accel
+        self.jerk = jerk
+        self.ext_accel_start = ext_accel_start
+        self.ext_jerk = ext_jerk
+        self.ext_check_vel_end = ext_check_vel_end
         self.timing_callbacks = []
         velocity = min(speed, toolhead.max_velocity)
         self.is_kinematic_move = True
@@ -47,17 +50,28 @@ class Move:
         else:
             inv_move_d = 1. / move_d
         self.axes_r = [d * inv_move_d for d in axes_d]
-        self.min_move_t = move_d / velocity
         # Junction speeds are tracked in velocity squared.  The
         # delta_v2 is the maximum amount of this squared-velocity that
         # can change in this move.
         self.max_start_v2 = 0.
         self.max_cruise_v2 = velocity**2
-        self.delta_v2 = 2.0 * move_d * self.accel
         self.max_smoothed_v2 = 0.
-        self.smooth_delta_v2 = 2.0 * move_d * toolhead.max_accel_to_decel
+        if self.moveType == MoveType.trapezoidal:
+            self.delta_v2 = 2.0 * move_d * self.accel
+            self.smooth_delta_v2 = 2.0 * move_d * toolhead.max_accel_to_decel
+            self.min_move_t = move_d / velocity
+        else:
+            # Equatino for delta_v2 if there's jerk depends on start v, so no simple equation for it.
+            self.delta_v2 = self.smooth_delta_v2 = None
+            # used to verify we ended at expected v2
+            self.final_v2 = speed**2
+            self.min_move_t = move_d / velocity
     def limit_speed(self, speed, accel):
         speed2 = speed**2
+        if self.moveType == MoveType.withJerk:
+            if speed2 < self.max_cruise_v2 or accel != self.accel:
+                self.move_error("move with jerk violates some limit %.5g vs %.5g and %.5g,%.5g" % (speed, math.sqrt(self.max_cruise_v2)), accel, self.accel)
+            return
         if speed2 < self.max_cruise_v2:
             self.max_cruise_v2 = speed2
             self.min_move_t = self.move_d / speed
@@ -417,8 +431,10 @@ class ToolHead:
         self.commanded_pos[:] = newpos
         self.kin.set_position(newpos, homing_axes)
         self.printer.send_event("toolhead:set_position")
-    def move(self, newpos, speed, acceleration, jerk):
-        move = Move(self, self.commanded_pos, newpos, speed)
+    def move(self, newpos, speed, accel_start, jerk,
+             ext_accel_start, ext_jerk, ext_check_vel_end):
+        move = Move(self, self.commanded_pos, newpos, speed, accel_start, jerk,
+                    ext_accel_start, ext_jerk, ext_check_vel_end)
         if not move.move_d:
             return
         if move.is_kinematic_move:
@@ -427,12 +443,7 @@ class ToolHead:
             self.extruder.check_move(move)
         self.commanded_pos[:] = move.end_pos
 
-        is_g1j = acceleration is not None
-        if is_g1j:
-            if math.sqrt(move.max_cruise_v2) != speed:
-                 raise self.printer.command_error("G1J specified speed exceeds a limit")
-        else:
-            self.move_queue.add_move(move)
+        self.move_queue.add_move(move)
         if self.print_time > self.need_check_stall:
             self._check_stall()
     def manual_move(self, coord, speed):

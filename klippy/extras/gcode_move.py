@@ -136,32 +136,48 @@ class GCodeMove:
                 else:
                     # value relative to base coordinate position
                     self.last_position[3] = v + self.base_position[3]
-            if not withAccel and 'F' in params:
+            if 'F' in params:
+                if withAccel:
+                    raise gcmd.error("Invalid F with G1J move %s"
+                                     % (gcmd.get_commandline(),))
                 gcode_speed = float(params['F'])
                 if gcode_speed <= 0.:
                     raise gcmd.error("Invalid speed in '%s'"
                                      % (gcmd.get_commandline(),))
                 self.speed = gcode_speed * self.speed_factor
             if withAccel:
-                # will use 0 vs None to distinguish in the move code if it's g1 or g1j move
-                acceleration = 0
-                jerk = 0
-                if 'Acc' in params:
-                    acceleration = float(params['Acc']) * 60. * self.speed_factor
+                if 'AccStart' in params:
+                    accel_start = float(params['AccStart']) * 60. * self.speed_factor
+                else:
+                    raise gcmd.error("AccStart missing in '%s'" % (gcmd.get_commandline(),))
                 if 'Jer' in params:
-                    if not 'Acc' in params:
-                        raise gcmd.error("Jerk specified without acceleration in '%s'"
-                                         % (gcmd.get_commandline(),))
                     jerk = float(params['Jer'])
-                if 'Vel' in params:
-                    self.speed = float(params['Vel'])
+                else:
+                    raise gcmd.error("Jer missing in '%s'" % (gcmd.get_commandline(),))
+                if 'CheckVelEnd' in params:
+                    self.speed = float(params['CheckVelEnd'])
+                else:
+                    raise gcmd.error("CheckVelEnd missing in '%s'" % (gcmd.get_commandline(),))
+                if 'ExtAccStart' in params:
+                    ext_accel_start = float(params['ExtAccStart']) * 60. * self.speed_factor
+                else:
+                    raise gcmd.error("ExtAccStart missing in '%s'" % (gcmd.get_commandline(),))
+                if 'ExtJer' in params:
+                    ext_jerk = float(params['ExtJer'])
+                else:
+                    raise gcmd.error("ExtJer missing in '%s'" % (gcmd.get_commandline(),))
+                if 'ExtCheckVelEnd' in params:
+                    ext_check_vel_end = float(params['ExtCheckVelEnd'])
+                else:
+                    raise gcmd.error("ExtCheckVelEnd missing in '%s'" % (gcmd.get_commandline(),))
             else:
-                acceleration = None
-                jerk = None
+                accel_start = jerk = ext_accel_start = ext_jerk = ext_check_vel_end = None
+               
         except ValueError as e:
             raise gcmd.error("Unable to parse move '%s'"
                              % (gcmd.get_commandline(),))
-        self.move_with_transform(self.last_position, self.speed, acceleration, jerk)
+        self.move_with_transform(self.last_position, self.speed, accel_start, jerk,
+                                 ext_accel_start, ext_jerk, ext_check_vel_end)
     # G-Code coordinate manipulation
     def cmd_G20(self, gcmd):
         # Set units to inches
