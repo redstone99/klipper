@@ -16,25 +16,39 @@ class MoveType(Enum):
 # Class to track each move request
 # Note when jerk is not None, this is not a trapezoidal move. It is just a single accel segment.
 class Move:
-    def __init__(self, toolhead, start_pos, end_pos, speed, accel_start, jerk,
-                 ext_accel_start, ext_jerk, ext_check_vel_end):
+    def checkInvariants(self):
+    def __init__(self, toolhead, start_pos, end_pos, speed,
+                 secs, start_accel, jerk,
+                 ext_end_v, ext_start_accel, ext_jerk):
         self.toolhead = toolhead
         self.start_pos = tuple(start_pos)
         self.end_pos = tuple(end_pos)
+        self.axes_d = axes_d = [end_pos[i] - start_pos[i] for i in (0, 1, 2, 3)]
+        self.move_d = move_d = math.sqrt(sum([d*d for d in axes_d[:3]]))
         if jerk is not None:
             self.moveType = MoveType.withJerk
         else:
             self.moveType = MoveType.trapezoidal
-        self.accel = accel_start if accel_start is not None else toolhead.max_accel
+        # accel aka start_accel
+        self.secs = secs
+        self.accel = start_accel if start_accel is not None else toolhead.max_accel
         self.jerk = jerk
-        self.ext_accel_start = ext_accel_start
+        self.ext_start_accel = ext_start_accel
         self.ext_jerk = ext_jerk
-        self.ext_check_vel_end = ext_check_vel_end
+        self.ext_end_v = ext_end_v
+        if self.moveType == MoveType.withJerk:
+            #end_accel = start_accel + jerk * secs
+            start_v = speed - start_accel * secs - 0.5*jerk*(secs**2)
+            expected_move_d = start_v * secs + 0.5 * start_accel * (secs**2) + 1.0/6.0*jerk*(secs**3)
+            if abs(expected_move_d - self.move_d) > 1e-8:
+                raise self.move_error("move paramters not self consistent distance %.5g vs %.5g" % (
+                    expected_move_d, self.move_d))
+        else:
+            assert secs == None and start_accel == None
+        
         self.timing_callbacks = []
         velocity = min(speed, toolhead.max_velocity)
         self.is_kinematic_move = True
-        self.axes_d = axes_d = [end_pos[i] - start_pos[i] for i in (0, 1, 2, 3)]
-        self.move_d = move_d = math.sqrt(sum([d*d for d in axes_d[:3]]))
         if move_d < .000000001:
             # Extrude only move
             self.end_pos = (start_pos[0], start_pos[1], start_pos[2],
@@ -53,24 +67,24 @@ class Move:
         # Junction speeds are tracked in velocity squared.  The
         # delta_v2 is the maximum amount of this squared-velocity that
         # can change in this move.
-        self.max_start_v2 = 0.
-        self.max_cruise_v2 = velocity**2
-        self.max_smoothed_v2 = 0.
         if self.moveType == MoveType.trapezoidal:
+            self.max_start_v2 = 0.
+            self.max_cruise_v2 = velocity**2
+            self.max_smoothed_v2 = 0.
             self.delta_v2 = 2.0 * move_d * self.accel
             self.smooth_delta_v2 = 2.0 * move_d * toolhead.max_accel_to_decel
             self.min_move_t = move_d / velocity
         else:
-            # Equatino for delta_v2 if there's jerk depends on start v, so no simple equation for it.
-            self.delta_v2 = self.smooth_delta_v2 = None
-            # used to verify we ended at expected v2
-            self.final_v2 = speed**2
-            self.min_move_t = move_d / velocity
+            if speed > toolhead.max_velocity or speed > toolhead.max_accel_to_decel:
+                raise self.move_error("Invalid G1J, velocity limited by toolhead.max_velocity or max_accel_to_decel %.5g" % (
+                    speed))
+            self.max_start_v2 = self.max_cruise_v2 = self.max_smoothed_v2 = self.delta_v2 = self.smooth_delta_v2 = None
+            self.min_move_t = secs
     def limit_speed(self, speed, accel):
         speed2 = speed**2
         if self.moveType == MoveType.withJerk:
             if speed2 < self.max_cruise_v2 or accel != self.accel:
-                self.move_error("move with jerk violates some limit %.5g vs %.5g and %.5g,%.5g" % (speed, math.sqrt(self.max_cruise_v2)), accel, self.accel)
+                raise self.move_error("move with jerk violates some limit %.5g vs %.5g and %.5g,%.5g" % (speed, math.sqrt(self.max_cruise_v2)), accel, self.accel)
             return
         if speed2 < self.max_cruise_v2:
             self.max_cruise_v2 = speed2
@@ -431,10 +445,12 @@ class ToolHead:
         self.commanded_pos[:] = newpos
         self.kin.set_position(newpos, homing_axes)
         self.printer.send_event("toolhead:set_position")
-    def move(self, newpos, speed, accel_start, jerk,
-             ext_accel_start, ext_jerk, ext_check_vel_end):
-        move = Move(self, self.commanded_pos, newpos, speed, accel_start, jerk,
-                    ext_accel_start, ext_jerk, ext_check_vel_end)
+    def move(self, newpos, speed,
+             secs, start_accel, jerk,
+             ext_end_v, ext_start_accel, ext_jerk):
+        move = Move(self, self.commanded_pos, newpos, speed,
+                    secs, start_accel, jerk,
+                    ext_end_v, ext_start_accel, ext_jerk)
         if not move.move_d:
             return
         if move.is_kinematic_move:
