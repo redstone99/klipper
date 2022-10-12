@@ -41,6 +41,7 @@ class Move:
         if self.moveType == MoveType.withJerk:
             #end_accel = start_accel + jerk * secs
             self.start_v = speed - start_accel * secs - 0.5*jerk*(secs**2)
+            self.ext_start_v = ext_end_v - ext_start_accel * secs - 0.5*ext_jerk*(secs**2)
             expected_move_d = self.start_v * secs + 0.5 * start_accel * (secs**2) + 1.0/6.0*jerk*(secs**3)
             if abs(expected_move_d - self.move_d) > 1e-8:
                 raise self.move_error("move paramters not self consistent distance %.5g vs %.5g" % (
@@ -146,6 +147,9 @@ class Move:
         self.accel_t = accel_d / ((start_v + cruise_v) * 0.5)
         self.cruise_t = cruise_d / cruise_v
         self.decel_t = decel_d / ((end_v + cruise_v) * 0.5)
+        ext_axis_r = move.axes_r[3]
+        self.ext_start_v = start_v * ext_axis_r
+        self.ext_end_v = end_v * ext_axis_r
 
 LOOKAHEAD_FLUSH_TIME = 0.250
 
@@ -165,10 +169,17 @@ class MoveQueue:
         if self.queue:
             return self.queue[-1]
         return None
-    def check_junction(self, prev_move, move):
-        if abs(prev_move.end_v - move.start_v) > 1e-8:
-            raise move.move_error("end_v doesn't match start_v of next move %.5g vs %.5g" % (
-                prev_move.end_v, move.start_v))
+    
+    def check_junction(prev_move, move):
+        # Move of None means coming to full stop        
+        if move == None:
+            move_start_v = 0
+        else:
+            move_start_v = move.start_v
+        if abs(prev_move.end_v - move_start_v) > 1e-8:
+            raise prev_move.move_error("end_v doesn't match start_v of next move %.5g vs %.5g" % (
+                prev_move.end_v, move_start_v))
+        self.toolhead.extruder.check_junction(prev_move, move)
             
     def flush(self, lazy=False):
         self.junction_flush = LOOKAHEAD_FLUSH_TIME
@@ -198,6 +209,7 @@ class MoveQueue:
                 move.accel_t = move.secs
                 move.cruise_t = 0
                 move.decel_t = 0
+                check_junction(move, next_move)
                 next_move = move
                 continue
             reachable_start_v2 = next_end_v2 + move.delta_v2
@@ -226,6 +238,7 @@ class MoveQueue:
                                 actual_end_v2   = min(me_v2, mc_v2)
                                 m.set_junction(actual_start_v2, mc_v2
                                                , actual_end_v2)
+                                check_junction(move, next_move)
                                 next_move = m
                         del delayed[:]
                 if not update_flush_count and i < flush_count:
@@ -237,6 +250,7 @@ class MoveQueue:
                         raise move.move_error("Discontinuous veloctiy change between moves %.5g vs %.5g" % (
                             math.sqrt(actual_end_v2), math.sqrt(next_start_v2)))
                     move.set_junction(actual_start_v2, cruise_v2, actual_end_v2)
+                    check_junction(move, next_move)
                     next_move = move
             else:
                 # Delay calculating this move until peak_cruise_v2 is known
@@ -321,6 +335,7 @@ class ToolHead:
         ffi_main, ffi_lib = chelper.get_ffi()
         self.trapq = ffi_main.gc(ffi_lib.trapq_alloc(), ffi_lib.trapq_free)
         self.trapq_append = ffi_lib.trapq_append
+        self.trapq_append2 = ffi_lib.trapq_append2
         self.trapq_finalize_moves = ffi_lib.trapq_finalize_moves
         self.step_generators = []
         # Create kinematics class

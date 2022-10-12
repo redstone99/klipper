@@ -184,6 +184,7 @@ class PrinterExtruder:
         ffi_main, ffi_lib = chelper.get_ffi()
         self.trapq = ffi_main.gc(ffi_lib.trapq_alloc(), ffi_lib.trapq_free)
         self.trapq_append = ffi_lib.trapq_append
+        self.trapq_append2 = ffi_lib.trapq_append2
         self.trapq_finalize_moves = ffi_lib.trapq_finalize_moves
         # Setup extruder stepper
         self.extruder_stepper = None
@@ -248,31 +249,44 @@ class PrinterExtruder:
                 "Move exceeds maximum extrusion (%.3fmm^2 vs %.3fmm^2)\n"
                 "See the 'max_extrude_cross_section' config option for details"
                 % (area, self.max_extrude_ratio * self.filament_area))
+    def check_junction(self, prev_move, move):
+        # Move of None means coming to full stop        
+        if move == None:
+            ext_move_start_v = 0
+        else:
+            ext_move_start_v = move.ext_start_v
+        if abs(prev_move.ext_end_v - ext_move_start_v) > 1e-8:
+            raise prev_move.move_error("extruder end_v doesn't match start_v of next move %.5g vs %.5g" % (
+                prev_move.ext_end_v, ext_move_start_v))
     def calc_junction(self, prev_move, move):
-        if move.moveType == MoveType.withJerk:
-            if prev_move.moveType == MoveType.withJerk:
-                if abs(prev_move.end_v - move.start_v) > 1e-8:
-                    raise self.printer.command_error("Discontinuous extruder velocity between moves %.5g vs %.5g" % (prev_move.end_v, move.start_v))
-            else:
-                
+        assert move.moveType == MoveType.trapezoidal
         diff_r = move.axes_r[3] - prev_move.axes_r[3]
         if diff_r:
             return (self.instant_corner_v / abs(diff_r))**2
         return move.max_cruise_v2
     def move(self, print_time, move):
         axis_r = move.axes_r[3]
-        accel = move.accel * axis_r
-        start_v = move.start_v * axis_r
-        cruise_v = move.cruise_v * axis_r
         can_pressure_advance = False
         if axis_r > 0. and (move.axes_d[0] or move.axes_d[1]):
             can_pressure_advance = True
         # Queue movement (x is extruder movement, y is pressure advance flag)
-        self.trapq_append(self.trapq, print_time,
-                          move.accel_t, move.cruise_t, move.decel_t,
-                          move.start_pos[3], 0., 0.,
-                          1., can_pressure_advance, 0.,
-                          start_v, cruise_v, accel)
+        if move.moveType == MoveType.withJerk:
+            self.trapq_append2(
+                self.trapq, print_time,
+                move.secs,
+                move.start_pos[3], 0., 0.,
+                move.axes_r[0], move.axes_r[1], move.axes_r[2],
+                1., can_pressure_advance, 0.,
+                move.ext_start_v, move.ext_start_accel, move.ext_jerk)
+        else:
+            accel = move.accel * axis_r
+            start_v = move.start_v * axis_r
+            cruise_v = move.cruise_v * axis_r
+            self.trapq_append(self.trapq, print_time,
+                              move.accel_t, move.cruise_t, move.decel_t,
+                              move.start_pos[3], 0., 0.,
+                              1., can_pressure_advance, 0.,
+                              start_v, cruise_v, accel)
         self.last_position = move.end_pos[3]
     def find_past_position(self, print_time):
         if self.extruder_stepper is None:
