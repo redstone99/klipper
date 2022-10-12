@@ -11,12 +11,12 @@ struct coord {
         double axis[3];
     };
 };
-
+// (setq-default c-basic-offset 4)  ; then reopen buffer
 struct move {
     double print_time, move_t;
-    double start_v, half_accel;
+    double start_v, half_accel, jerk;
     struct coord start_pos, axes_r;
-
+  
     struct list_node node;
 };
 
@@ -37,6 +37,11 @@ void trapq_append(struct trapq *tq, double print_time
                   , double start_pos_x, double start_pos_y, double start_pos_z
                   , double axes_r_x, double axes_r_y, double axes_r_z
                   , double start_v, double cruise_v, double accel);
+void trapq_append2(struct trapq *tq, double print_time
+                   , double accel_t,
+                   , double start_pos_x, double start_pos_y, double start_pos_z
+                   , double axes_r_x, double axes_r_y, double axes_r_z
+                   , double start_v, double accel, double jerk);
 double move_get_distance(struct move *m, double move_time);
 struct coord move_get_coord(struct move *m, double move_time);
 struct trapq *trapq_alloc(void);

@@ -20,6 +20,25 @@ move_alloc(void)
     return m;
 }
 
+void __visible
+void trapq_append2(struct trapq *tq, double print_time
+                   , double accel_t,
+                   , double start_pos_x, double start_pos_y, double start_pos_z
+                   , double axes_r_x, double axes_r_y, double axes_r_z
+                   , double start_v, double accel, double jerk) {
+    struct coord start_pos = { .x=start_pos_x, .y=start_pos_y, .z=start_pos_z };
+    struct coord axes_r = { .x=axes_r_x, .y=axes_r_y, .z=axes_r_z };
+    struct move *m = move_alloc();
+    m->print_time = print_time;
+    m->move_t = accel_t;
+    m->start_v = start_v;
+    m->half_accel = .5 * accel;
+    m->jerk = jerk;
+    m->start_pos = start_pos;
+    m->axes_r = axes_r;
+    trapq_add_move(tq, m);
+}
+
 // Fill and add a move to the trapezoid velocity queue
 void __visible
 trapq_append(struct trapq *tq, double print_time
@@ -36,6 +55,7 @@ trapq_append(struct trapq *tq, double print_time
         m->move_t = accel_t;
         m->start_v = start_v;
         m->half_accel = .5 * accel;
+        m->jerk = 0;
         m->start_pos = start_pos;
         m->axes_r = axes_r;
         trapq_add_move(tq, m);
@@ -49,6 +69,7 @@ trapq_append(struct trapq *tq, double print_time
         m->move_t = cruise_t;
         m->start_v = cruise_v;
         m->half_accel = 0.;
+        m->jerk = 0;
         m->start_pos = start_pos;
         m->axes_r = axes_r;
         trapq_add_move(tq, m);
@@ -61,6 +82,7 @@ trapq_append(struct trapq *tq, double print_time
         m->print_time = print_time;
         m->move_t = decel_t;
         m->start_v = cruise_v;
+        m->jerk = 0;
         m->half_accel = -.5 * accel;
         m->start_pos = start_pos;
         m->axes_r = axes_r;

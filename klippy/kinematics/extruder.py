@@ -249,6 +249,12 @@ class PrinterExtruder:
                 "See the 'max_extrude_cross_section' config option for details"
                 % (area, self.max_extrude_ratio * self.filament_area))
     def calc_junction(self, prev_move, move):
+        if move.moveType == MoveType.withJerk:
+            if prev_move.moveType == MoveType.withJerk:
+                if abs(prev_move.end_v - move.start_v) > 1e-8:
+                    raise self.printer.command_error("Discontinuous extruder velocity between moves %.5g vs %.5g" % (prev_move.end_v, move.start_v))
+            else:
+                
         diff_r = move.axes_r[3] - prev_move.axes_r[3]
         if diff_r:
             return (self.instant_corner_v / abs(diff_r))**2
