@@ -116,6 +116,7 @@ extruder_calc_position(struct stepper_kinematics *sk, struct move *m
         // Pressure advance not enabled
         return m->start_pos.x + move_get_distance(m, move_time);
     // Apply pressure advance and average over smooth_time
+    // We check elsewhere that pressure advance is 0 if a move has jerk.
     double area = pa_range_integrate(m, move_time, es->pressure_advance, hst);
     return m->start_pos.x + area * es->inv_half_smooth_time2;
 }

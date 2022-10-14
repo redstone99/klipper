@@ -14,7 +14,7 @@ struct coord {
 // (setq-default c-basic-offset 4)  ; then reopen buffer
 struct move {
     double print_time, move_t;
-    double start_v, half_accel, jerk;
+    double start_v, half_accel, sixth_jerk;
     struct coord start_pos, axes_r;
   
     struct list_node node;

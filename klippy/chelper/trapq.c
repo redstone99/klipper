@@ -33,7 +33,7 @@ void trapq_append2(struct trapq *tq, double print_time
     m->move_t = accel_t;
     m->start_v = start_v;
     m->half_accel = .5 * accel;
-    m->jerk = jerk;
+    m->sixth_jerk = jerk / 6.0;
     m->start_pos = start_pos;
     m->axes_r = axes_r;
     trapq_add_move(tq, m);
@@ -55,7 +55,7 @@ trapq_append(struct trapq *tq, double print_time
         m->move_t = accel_t;
         m->start_v = start_v;
         m->half_accel = .5 * accel;
-        m->jerk = 0;
+        m->sixth_jerk = 0;
         m->start_pos = start_pos;
         m->axes_r = axes_r;
         trapq_add_move(tq, m);
@@ -69,7 +69,7 @@ trapq_append(struct trapq *tq, double print_time
         m->move_t = cruise_t;
         m->start_v = cruise_v;
         m->half_accel = 0.;
-        m->jerk = 0;
+        m->sixth_jerk = 0;
         m->start_pos = start_pos;
         m->axes_r = axes_r;
         trapq_add_move(tq, m);
@@ -82,8 +82,8 @@ trapq_append(struct trapq *tq, double print_time
         m->print_time = print_time;
         m->move_t = decel_t;
         m->start_v = cruise_v;
-        m->jerk = 0;
         m->half_accel = -.5 * accel;
+        m->sixth_jerk = 0;
         m->start_pos = start_pos;
         m->axes_r = axes_r;
         trapq_add_move(tq, m);
@@ -94,7 +94,7 @@ trapq_append(struct trapq *tq, double print_time
 inline double
 move_get_distance(struct move *m, double move_time)
 {
-    return (m->start_v + m->half_accel * move_time) * move_time;
+  return (m->start_v + (m->half_accel + m->sixth_jerk * move_time) * move_time) * move_time;
 }
 
 // Return the XYZ coordinates given a time in a move
@@ -203,7 +203,7 @@ trapq_finalize_moves(struct trapq *tq, double print_time)
         if (m->print_time + m->move_t > print_time)
             break;
         list_del(&m->node);
-        if (m->start_v || m->half_accel)
+        if (m->start_v || m->half_accel || m->sixth_jerk)
             list_add_head(&m->node, &tq->history);
         else
             free(m);
