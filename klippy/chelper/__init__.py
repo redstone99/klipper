@@ -6,6 +6,11 @@
 import os, logging
 import cffi
 
+# Doesn't belong here. Here just cuz both extruder.py and toolhead.py import this file.
+from enum import Enum
+class MoveType(Enum):
+    trapezoidal=1
+    withJerk=2
 
 ######################################################################
 # c_helper.so compiling
@@ -91,7 +96,7 @@ defs_trapq = """
         , double axes_r_x, double axes_r_y, double axes_r_z
         , double start_v, double cruise_v, double accel);
     void trapq_append2(struct trapq *tq, double print_time
-                   , double accel_t,
+                   , double accel_t
                    , double start_pos_x, double start_pos_y, double start_pos_z
                    , double axes_r_x, double axes_r_y, double axes_r_z
                    , double start_v, double accel, double jerk);

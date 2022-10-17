@@ -33,7 +33,7 @@ class GCodeMove:
             desc = getattr(self, 'cmd_' + cmd + '_help', None)
             gcode.register_command(cmd, func, False, desc)
         gcode.register_command('G0', self.cmd_G1)
-        gcode.register_command('G1J', self.cmd_G1J)
+        gcode.register_command('G7', self.cmd_G7)
         gcode.register_command('M114', self.cmd_M114, True)
         gcode.register_command('GET_POSITION', self.cmd_GET_POSITION, True,
                                desc=self.cmd_GET_POSITION_help)
@@ -113,7 +113,7 @@ class GCodeMove:
     # G-Code movement commands
     def cmd_G1(self, gcmd):
         self.cmd_G1common(gcmd, False)
-    def cmd_G1J(self, gcmd):
+    def cmd_G7(self, gcmd):
         self.cmd_G1common(gcmd, True)
     def cmd_G1common(self, gcmd, withAccel):
         # Move
@@ -138,7 +138,7 @@ class GCodeMove:
                     self.last_position[3] = v + self.base_position[3]
             if 'F' in params:
                 if withAccel:
-                    raise gcmd.error("Invalid F with G1J move %s"
+                    raise gcmd.error("Invalid F with G7 move %s"
                                      % (gcmd.get_commandline(),))
                 gcode_speed = float(params['F'])
                 if gcode_speed <= 0.:
@@ -148,25 +148,28 @@ class GCodeMove:
             if withAccel:
                 # time jerk accel_start -> pos_final v_final
                 # extruder: jerk accel-start -> pos_final v_final
-                for expected in [ 'secs', 'jerk', 'start_accel', 'end_v',
-                                  'ext_jerk', 'ext_start_accel', 'ext_end_v' ]:
-                    if not expected in params:
-                        raise gcmd.error("%s missing in '%s'" % (expected, gcmd.get_commandline(),))
-                secs = float(params['secs'])
-                jerk = float(params['jerk'])
-                start_accel = float(params['start_accel']) * (60. * self.speed_factor)
-                self.speed = float(params['end_v'])
-                ext_jerk = float(params['ext_jerk'])
-                ext_start_accel = float(params['ext_start_accel']) * (60. * self.speed_factor)
-                ext_end_v = float(params['ext_end_v'])
+                for required in [ 'SECS', 'JERK', 'START_ACCEL', 'END_V',
+                                  'EXT_JERK', 'EXT_START_ACCEL', 'EXT_END_V' ]:
+                    if not required in params:
+                        raise gcmd.error("%s missing in '%s'" % (required, gcmd.get_commandline(),))
+                    if params[required][0] != '=':
+                        raise gcmd.error("wrong syntax for options to G7 %s '%s'" % (required, gcmd.get_commandline(),))
+                secs = float(params['SECS'][1:])
+                jerk = float(params['JERK'][1:])
+                start_accel = float(params['START_ACCEL'][1:]) * (60. * self.speed_factor)
+                self.speed = float(params['END_V'][1:])
+                ext_jerk = float(params['EXT_JERK'][1:])
+                ext_start_accel = float(params['EXT_START_ACCEL'][1:]) * (60. * self.speed_factor)
+                ext_end_v = float(params['EXT_END_V'][1:])
             else:
                 secs = jerk = start_accel = ext_jerk = ext_start_accel = ext_end_v = None
-                for prohibited in [ 'secs', 'jerk', 'start_accel', 'end_v',
-                                    'ext_jerk', 'ext_start_accel', 'ext_end_v' ]:
+                for prohibited in [ 'SECS', 'JERK', 'START_ACCEL', 'END_V',
+                                  'EXT_JERK', 'EXT_START_ACCEL', 'EXT_END_V' ]:
                     if prohibited in params:
-                        raise gcmd.error("G1J param %s not allowed in G1/G0 command '%s'" % (prohibited, gcmd.get_commandline(),))
+                        raise gcmd.error("G7 param %s not allowed in G1/G0 command '%s'" % (prohibited, gcmd.get_commandline(),))
                
         except ValueError as e:
+            print(e)
             raise gcmd.error("Unable to parse move '%s'"
                              % (gcmd.get_commandline(),))
         self.move_with_transform(self.last_position, self.speed,

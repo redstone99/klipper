@@ -21,8 +21,8 @@ move_alloc(void)
 }
 
 void __visible
-void trapq_append2(struct trapq *tq, double print_time
-                   , double accel_t,
+trapq_append2(struct trapq *tq, double print_time
+                   , double accel_t
                    , double start_pos_x, double start_pos_y, double start_pos_z
                    , double axes_r_x, double axes_r_y, double axes_r_z
                    , double start_v, double accel, double jerk) {

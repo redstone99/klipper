@@ -197,7 +197,9 @@ class BedMesh:
             final_z_adj = factor * z_adj + self.fade_target
             self.last_position[:] = [x, y, z - final_z_adj, e]
         return list(self.last_position)
-    def move(self, newpos, speed):
+    def move(self, newpos, speed,
+             secs=None, start_accel=None, jerk=None,
+             ext_end_v=None, ext_start_accel=None, ext_jerk=None):
         factor = self.get_z_factor(newpos[2])
         if self.z_mesh is None or not factor:
             # No mesh calibrated, or mesh leveling phased out.
@@ -207,13 +209,17 @@ class BedMesh:
                 logging.info(
                     "bed_mesh fade complete: Current Z: %.4f fade_target: %.4f "
                     % (z, self.fade_target))
-            self.toolhead.move([x, y, z + self.fade_target, e], speed)
+            self.toolhead.move([x, y, z + self.fade_target, e], speed,
+                               secs, start_accel, jerk,
+                               ext_end_v, ext_start_accel, ext_jerk)
         else:
             self.splitter.build_move(self.last_position, newpos, factor)
             while not self.splitter.traverse_complete:
                 split_move = self.splitter.split()
                 if split_move:
-                    self.toolhead.move(split_move, speed)
+                    self.toolhead.move(split_move, speed,
+                                       secs, start_accel, jerk,
+                                       ext_end_v, ext_start_accel, ext_jerk)
                 else:
                     raise self.gcode.error(
                         "Mesh Leveling: Error splitting move ")

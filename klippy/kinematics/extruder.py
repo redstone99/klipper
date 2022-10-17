@@ -5,7 +5,7 @@
 # This file may be distributed under the terms of the GNU GPLv3 license.
 import math, logging
 import stepper, chelper
-
+MoveType=chelper.MoveType
 class ExtruderStepper:
     def __init__(self, config):
         self.printer = config.get_printer()
@@ -249,9 +249,11 @@ class PrinterExtruder:
                 "Move exceeds maximum extrusion (%.3fmm^2 vs %.3fmm^2)\n"
                 "See the 'max_extrude_cross_section' config option for details"
                 % (area, self.max_extrude_ratio * self.filament_area))
-    def check_junction(self, prev_move, move):
+    def check_junction(self, prev_move, move, last_before_flush):
         # Move of None means coming to full stop        
-        if move == None:
+        if last_before_flush:
+            assert not hasattr(move, 'start_v')
+        if move == None or last_before_flush:
             ext_move_start_v = 0
         else:
             ext_move_start_v = move.ext_start_v
@@ -279,7 +281,6 @@ class PrinterExtruder:
                 self.trapq, print_time,
                 move.secs,
                 move.start_pos[3], 0., 0.,
-                move.axes_r[0], move.axes_r[1], move.axes_r[2],
                 1., can_pressure_advance, 0.,
                 move.ext_start_v, move.ext_start_accel, move.ext_jerk)
         else:
