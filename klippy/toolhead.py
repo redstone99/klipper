@@ -37,9 +37,11 @@ class Move:
         self.ext_jerk = ext_jerk
         self.ext_end_v = ext_end_v
         if self.moveType == MoveType.withJerk:
+            print("fuck G7", self.axes_d, speed, start_accel, jerk)
             #end_accel = start_accel + jerk * secs
             self.start_v = speed - start_accel * secs - 0.5*jerk*(secs**2)
             self.ext_start_v = ext_end_v - ext_start_accel * secs - 0.5*ext_jerk*(secs**2)
+            assert self.start_v >= 0 and self.ext_start_v >= 0 and self.end_v >= 0
             expected_move_d = self.start_v * secs + 0.5 * start_accel * (secs**2) + 1.0/6.0*jerk*(secs**3)
             # TODO - this check needs to depend on precision of source gcode
             if abs(expected_move_d - self.move_d) > 1e-6:
@@ -211,6 +213,8 @@ class MoveQueue:
                 move.cruise_t = 0
                 move.decel_t = 0
                 next_move = move
+                if not update_flush_count and i == (len(self.queue) - 1):
+                    assert move.end_v == 0
                 continue
             reachable_start_v2 = next_end_v2 + move.delta_v2
             start_v2 = min(move.max_start_v2, reachable_start_v2)
@@ -259,6 +263,8 @@ class MoveQueue:
                     did_set = True
                     move.set_junction(actual_start_v2, cruise_v2, actual_end_v2)
                     assert not delayed
+                    if i == (len(self.queue) - 1):
+                        assert move.end_v == 0
                     if len(self.queue) == 1:
                         assert actual_start_v2 == 0
                     print("    set start_v=%.5g end_v=%.5g" % (

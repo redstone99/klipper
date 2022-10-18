@@ -154,6 +154,9 @@ class GCodeMove:
                         raise gcmd.error("%s missing in '%s'" % (required, gcmd.get_commandline(),))
                     if params[required][0] != '=':
                         raise gcmd.error("wrong syntax for options to G7 %s '%s'" % (required, gcmd.get_commandline(),))
+                for positive in [ 'SECS', 'END_V' ]:
+                    if float(params[positive][1:]) < 0:
+                        raise gcmd.error("Negative value prohibited for G7 %s '%s'" % (required, gcmd.get_commandline(),))
                 secs = float(params['SECS'][1:])
                 jerk = float(params['JERK'][1:])
                 start_accel = float(params['START_ACCEL'][1:]) * (60. * self.speed_factor)
