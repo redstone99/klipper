@@ -37,11 +37,21 @@ class Move:
         self.ext_jerk = ext_jerk
         self.ext_end_v = ext_end_v
         if self.moveType == MoveType.withJerk:
-            print("fuck G7", self.axes_d, speed, start_accel, jerk)
+            print("fuck G7", self.axes_d, secs, speed, start_accel, jerk)
             #end_accel = start_accel + jerk * secs
             self.start_v = speed - start_accel * secs - 0.5*jerk*(secs**2)
+            #self.start_v = speed - secs*(start_accel + 0.5*jerk*secs)
             self.ext_start_v = ext_end_v - ext_start_accel * secs - 0.5*ext_jerk*(secs**2)
-            assert self.start_v >= 0 and self.ext_start_v >= 0 and self.end_v >= 0
+            #assert self.start_v >= 0 and self.ext_start_v >= 0 and self.end_v >= 0
+            # self.ext_start_v can be negative.
+            assert self.start_v >= -1e-5 and self.end_v >= -1e-5, "%g %g" % (self.start_v, self.end_v)
+            self.start_v = max(0, self.start_v)
+            self.end_v = max(0, self.end_v)
+            if self.start_v == 0:
+                assert abs(self.ext_start_v) < 1e-5, "%g" % (self.ext_start_v)
+                self.ext_start_v = 0
+            if self.end_v == 0:
+                assert self.ext_end_v == 0, "%g" % (self.ext_end_v)
             expected_move_d = self.start_v * secs + 0.5 * start_accel * (secs**2) + 1.0/6.0*jerk*(secs**3)
             # TODO - this check needs to depend on precision of source gcode
             if abs(expected_move_d - self.move_d) > 1e-6:
@@ -200,8 +210,8 @@ class MoveQueue:
                 i, "G7" if move.moveType == MoveType.withJerk else "G0",
                 str(move.axes_d)))
             if move.moveType == MoveType.withJerk:
-                print("    start_v=%g end_v=%g" % (
-                    move.start_v, move.end_v))
+                print("    start_v=%g end_v=%g ext_start_v=%g ext_end_v=%g" % (
+                    move.start_v, move.end_v, move.ext_start_v, move.ext_end_v))
                 if delayed:
                     # next_start_v2 hasn't been updated to next move yet.
                     raise move.move_error("Delayed moves after G7 move")
@@ -429,6 +439,7 @@ class ToolHead:
         else:
             ext_start_v = move.start_v * move.axes_r[3]
             ext_end_v = move.end_v * move.axes_r[3]
+        #print("check_junction: ", ext_start_v, ext_end_v, self.last_end_v)
         #print(move.move_d, move.axes_d[3] / move.move_d, move.axes_d[3] / move.move_d * move.start_v, move.start_v, move.axes_r[3], ext_start_v)
         if move.moveType == MoveType.withJerk and abs(self.last_end_v[1] - ext_start_v) > 1e-4:
             # If mvoe is trapezoidal, it could have an instantaneous extruder change
