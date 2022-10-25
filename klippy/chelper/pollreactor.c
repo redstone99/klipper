@@ -11,6 +11,7 @@
 #include <string.h> // memset
 #include "pollreactor.h" // pollreactor_alloc
 #include "pyhelper.h" // report_errno
+#include <stdio.h>
 
 struct pollreactor_timer {
     double waketime;
@@ -142,16 +143,19 @@ pollreactor_run(struct pollreactor *pr)
                 if (pr->fds[i].revents)
                     pr->fd_callbacks[i](pr->callback_data, eventtime);
         } else if (ret < 0) {
+          printf("Reactor must_exit set\n");
             report_errno("poll", ret);
             pr->must_exit = 1;
         }
     }
+    printf("Reactor exiting\n");
 }
 
 // Request that a currently running pollreactor_run() loop exit
 void
 pollreactor_do_exit(struct pollreactor *pr)
 {
+    printf("Reactor must_exit set2\n");
     pr->must_exit = 1;
 }
 
