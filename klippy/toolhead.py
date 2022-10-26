@@ -3,7 +3,7 @@
 # Copyright (C) 2016-2021  Kevin O'Connor <kevin@koconnor.net>
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
-import math, logging, importlib
+import math, logging, importlib, traceback, time
 import mcu, chelper, kinematics.extruder
 MoveType=chelper.MoveType
 # Common suffixes: _d is distance (in mm), _v is velocity (in
@@ -37,7 +37,7 @@ class Move:
         self.ext_jerk = ext_jerk
         self.ext_end_v = ext_end_v
         if self.moveType == MoveType.withJerk:
-            print("fuck G7", self.axes_d, secs, speed, start_accel, jerk)
+            print("fuck G7", self.start_pos, self.axes_d, secs, speed, start_accel, jerk)
             #end_accel = start_accel + jerk * secs
             self.start_v = speed - start_accel * secs - 0.5*jerk*(secs**2)
             #self.start_v = speed - secs*(start_accel + 0.5*jerk*secs)
@@ -108,6 +108,8 @@ class Move:
         self.delta_v2 = 2.0 * self.move_d * self.accel
         self.smooth_delta_v2 = min(self.smooth_delta_v2, self.delta_v2)
     def move_error(self, msg="Move out of range"):
+        print(self.axes_d)
+        traceback.print_stack()
         ep = self.end_pos
         m = "%s: %.3f %.3f %.3f [%.3f]" % (msg, ep[0], ep[1], ep[2], ep[3])
         return self.toolhead.printer.command_error(m)
@@ -592,6 +594,8 @@ class ToolHead:
         self.move(curpos, speed)
         self.printer.send_event("toolhead:manual_move")
     def dwell(self, delay):
+        print("Josh - sleeping for a second", delay)
+        time.sleep(delay / 1000.)
         next_print_time = self.get_last_move_time() + max(0., delay)
         self._update_move_time(next_print_time)
         self._check_stall()

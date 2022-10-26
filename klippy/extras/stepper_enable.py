@@ -52,12 +52,14 @@ class EnableTracking:
     def register_state_callback(self, callback):
         self.callbacks.append(callback)
     def motor_enable(self, print_time):
+        print("JOSH - stepper eneabled", self.stepper._name)
         if not self.is_enabled:
             for cb in self.callbacks:
                 cb(print_time, True)
             self.enable.set_enable(print_time)
             self.is_enabled = True
     def motor_disable(self, print_time):
+        print("JOSH - stepper disabled", self.stepper._name)
         if self.is_enabled:
             # Enable stepper on future stepper movement
             for cb in self.callbacks:

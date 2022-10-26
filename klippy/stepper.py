@@ -3,7 +3,7 @@
 # Copyright (C) 2016-2021  Kevin O'Connor <kevin@koconnor.net>
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
-import math, logging, collections
+import math, logging, collections, traceback
 import chelper
 
 class error(Exception):
@@ -208,6 +208,8 @@ class MCU_stepper:
         self._trapq = tq
         return old_tq
     def add_active_callback(self, cb):
+        print("josh")
+        traceback.print_stack()
         self._active_callbacks.append(cb)
     def generate_steps(self, flush_time):
         # Check for activity if necessary

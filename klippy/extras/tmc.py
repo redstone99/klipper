@@ -3,7 +3,7 @@
 # Copyright (C) 2018-2020  Kevin O'Connor <kevin@koconnor.net>
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
-import logging, collections
+import logging, collections, traceback
 import stepper
 
 
@@ -316,6 +316,7 @@ class TMCCommandHelper:
         if self.mcu_phase_offset is not None and self.mcu_phase_offset != moff:
             logging.warning("Stepper %s phase change (was %d now %d)",
                             self.stepper_name, self.mcu_phase_offset, moff)
+        print("josh - stepper, setting mcu_phase_offset", stepper._name)
         self.mcu_phase_offset = moff
     # Stepper enable/disable tracking
     def _do_enable(self, print_time):
@@ -356,6 +357,7 @@ class TMCCommandHelper:
         # Note pulse duration and step_both_edge optimizations available
         self.stepper.setup_default_pulse_duration(.000000100, True)
     def _handle_stepper_enable(self, print_time, is_enable):
+        traceback.print_stack()
         if is_enable:
             cb = (lambda ev: self._do_enable(print_time))
         else:
