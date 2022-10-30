@@ -3,7 +3,7 @@
 # Copyright (C) 2018-2020  Kevin O'Connor <kevin@koconnor.net>
 #
 # This file may be distributed under the terms of the GNU GPLv3 license.
-import logging, collections, traceback
+import logging, collections
 import stepper
 
 
@@ -357,7 +357,6 @@ class TMCCommandHelper:
         # Note pulse duration and step_both_edge optimizations available
         self.stepper.setup_default_pulse_duration(.000000100, True)
     def _handle_stepper_enable(self, print_time, is_enable):
-        traceback.print_stack()
         if is_enable:
             cb = (lambda ev: self._do_enable(print_time))
         else:

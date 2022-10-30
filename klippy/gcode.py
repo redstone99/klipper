@@ -394,6 +394,7 @@ class GCodeIO:
         if self.is_fileinput:
             self.printer.request_exit('error_exit')
     m112_r = re.compile('^(?:[nN][0-9]+)?\s*[mM]112(?:\s|$)')
+    g4_r = re.compile('^(?:[nN][0-9]+)?\s*[gG]0?4(?:\s|$)')
     def _process_data(self, eventtime):
         # Read input, separate by newline, and add to pending_commands
         try:
@@ -401,42 +402,57 @@ class GCodeIO:
         except (os.error, UnicodeDecodeError):
             logging.exception("Read g-code")
             return
+        self.pipe_is_active = True
         self.input_log.append((eventtime, data))
         self.bytes_read += len(data)
+        data = self.partial_input + data
         lines = data.split('\n')
-        lines[0] = self.partial_input + lines[0]
+        #lines[0] = self.partial_input + lines[0]
         self.partial_input = lines.pop()
-        pending_commands = self.pending_commands
-        pending_commands.extend(lines)
-        self.pipe_is_active = True
+        self.pending_commands.extend(lines)
         # Special handling for debug file input EOF
         if not data and self.is_fileinput:
             if not self.is_processing_data:
                 self.reactor.unregister_fd(self.fd_handle)
                 self.fd_handle = None
                 self.gcode.request_restart('exit')
-            pending_commands.append("")
+            self.pending_commands.append("")
+        self._process_data2(eventtime)
+    def _process_data2(self, eventtime):
+        # Use G4 dwell command to be a yield, to allow other pending reactor events
+        # to execute. Events such as TMC offset calc require a flushed gcode queue and
+        # stopped toolhead. For our fragile g7 commands, we need to add dwells to gcode
+        # to give opportunities for those events so they don't happen in the middle of
+        # g7 series.  very fragile.
+        pending_commands = self.pending_commands
+        dwell_idx = len(pending_commands) - 1
+        for dwell_idx in range(len(pending_commands)):
+            if self.g4_r.match(pending_commands[dwell_idx]) is not None:
+                break
+        print("josh - _process_data2", len(pending_commands), dwell_idx)
+        commands_to_process = pending_commands[0:dwell_idx + 1]
         # Handle case where multiple commands pending
-        if self.is_processing_data or len(pending_commands) > 1:
-            if len(pending_commands) < 20:
+        if self.is_processing_data or len(commands_to_process) > 1:
+            if len(commands_to_process) < 20:
                 # Check for M112 out-of-order
-                for line in lines:
+                for line in commands_to_process:
                     if self.m112_r.match(line) is not None:
                         self.gcode.cmd_M112(None)
             if self.is_processing_data:
-                if len(pending_commands) >= 20:
+                if len(commands_to_process) >= 20:
                     # Stop reading input
                     self.reactor.unregister_fd(self.fd_handle)
                     self.fd_handle = None
                 return
         # Process commands
         self.is_processing_data = True
-        while pending_commands:
-            self.pending_commands = []
-            with self.gcode_mutex:
-                self.gcode._process_commands(pending_commands)
-            pending_commands = self.pending_commands
+        self.pending_commands = pending_commands[dwell_idx+1:]
+        with self.gcode_mutex:
+            self.gcode._process_commands(commands_to_process)
         self.is_processing_data = False
+        if len(self.pending_commands) > 0:
+            self.reactor.register_callback(self._process_data2)
+            return
         if self.fd_handle is None:
             self.fd_handle = self.reactor.register_fd(self.fd,
                                                       self._process_data)
