@@ -7,8 +7,8 @@ import os, logging
 import cffi
 
 # Doesn't belong here. Here just cuz both extruder.py and toolhead.py import this file.
-from enum import Enum
-class MoveType(Enum):
+#from enum import Enum
+class MoveType:
     trapezoidal=1
     withJerk=2
 
