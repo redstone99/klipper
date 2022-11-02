@@ -55,7 +55,7 @@ class Move:
             print('fuck', self.start_v, secs, start_accel, jerk)
             expected_move_d = self.start_v * secs + 0.5 * start_accel * (secs**2) + 1.0/6.0*jerk*(secs**3)
             # TODO - this check needs to depend on precision of source gcode
-            if abs(expected_move_d - self.move_d) > 1e-6:
+            if abs(expected_move_d - self.move_d) > 1e-3:
                 raise self.move_error("move paramters not self consistent distance %.5g vs %.5g (%.5g)" % (
                     expected_move_d, self.move_d, expected_move_d - self.move_d))
         else:
