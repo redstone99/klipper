@@ -209,6 +209,8 @@ class BedMesh:
                 logging.info(
                     "bed_mesh fade complete: Current Z: %.4f fade_target: %.4f "
                     % (z, self.fade_target))
+            if secs != 0:
+                assert self.fade_target == 0
             self.toolhead.move([x, y, z + self.fade_target, e], speed,
                                secs, start_accel, jerk,
                                ext_end_v, ext_start_accel, ext_jerk)

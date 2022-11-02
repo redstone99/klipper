@@ -52,6 +52,7 @@ class Move:
                 self.ext_start_v = 0
             if self.end_v == 0:
                 assert self.ext_end_v == 0, "%g" % (self.ext_end_v)
+            print('fuck', self.start_v, secs, start_accel, jerk)
             expected_move_d = self.start_v * secs + 0.5 * start_accel * (secs**2) + 1.0/6.0*jerk*(secs**3)
             # TODO - this check needs to depend on precision of source gcode
             if abs(expected_move_d - self.move_d) > 1e-6:
