@@ -239,16 +239,17 @@ class PrinterExtruder:
             move.limit_speed(self.max_e_velocity * inv_extrude_r,
                              self.max_e_accel * inv_extrude_r)
         elif axis_r > self.max_extrude_ratio:
-            if move.axes_d[3] <= self.nozzle_diameter * self.max_extrude_ratio:
+            tratio = 4.0 * self.max_extrude_ratio if move.moveType == MoveType.withJerk else self.max_extrude_ratio
+            if move.axes_d[3] <= self.nozzle_diameter * tratio:
                 # Permit extrusion if amount extruded is tiny
                 return
             area = axis_r * self.filament_area
             logging.debug("Overextrude: %s vs %s (area=%.3f dist=%.3f)",
-                          axis_r, self.max_extrude_ratio, area, move.move_d)
+                          axis_r, tratio, area, move.move_d)
             raise self.printer.command_error(
                 "Move exceeds maximum extrusion (%.3fmm^2 vs %.3fmm^2)\n"
                 "See the 'max_extrude_cross_section' config option for details"
-                % (area, self.max_extrude_ratio * self.filament_area))
+                % (area, tratio * self.filament_area))
     def check_junction(self, prev_move, move, last_before_flush):
         # Move of None means coming to full stop        
         if last_before_flush:
