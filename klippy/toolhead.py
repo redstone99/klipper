@@ -37,7 +37,7 @@ class Move:
         self.ext_jerk = ext_jerk
         self.ext_end_v = ext_end_v
         if self.moveType == MoveType.withJerk:
-            print("fuck G7", self.start_pos, self.axes_d, secs, speed, start_accel, jerk)
+            print("fuck G7", self.start_pos, self.end_pos, self.axes_d, secs, speed, start_accel, jerk)
             #end_accel = start_accel + jerk * secs
             self.start_v = speed - start_accel * secs - 0.5*jerk*(secs**2)
             #self.start_v = speed - secs*(start_accel + 0.5*jerk*secs)
@@ -52,7 +52,7 @@ class Move:
                 self.ext_start_v = 0
             if self.end_v == 0:
                 assert self.ext_end_v == 0, "%g" % (self.ext_end_v)
-            print('fuck', self.start_v, secs, start_accel, jerk)
+            #print('fuck', self.start_v, secs, start_accel, jerk)
             expected_move_d = self.start_v * secs + 0.5 * start_accel * (secs**2) + 1.0/6.0*jerk*(secs**3)
             # TODO - this check needs to depend on precision of source gcode
             if abs(expected_move_d - self.move_d) > 1e-3:
@@ -587,6 +587,13 @@ class ToolHead:
         self.move_queue.add_move(move)
         if self.print_time > self.need_check_stall:
             self._check_stall()
+    # Is print head halt-able at this point.  Invariant which G7 breaks
+    # is that the MoveQueue always can end with v=0
+    def last_move_can_pause(self):
+        last_move = self.move_queue.get_last()
+        return not last_move or \
+            last_move.moveType == MoveType.trapezoidal or \
+            last_move.end_v == 0
     def manual_move(self, coord, speed):
         curpos = list(self.commanded_pos)
         for i in range(len(coord)):

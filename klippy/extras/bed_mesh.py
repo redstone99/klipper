@@ -209,18 +209,27 @@ class BedMesh:
                 logging.info(
                     "bed_mesh fade complete: Current Z: %.4f fade_target: %.4f "
                     % (z, self.fade_target))
-            if secs != 0:
-                assert self.fade_target == 0
+            #if secs != 0:
+            #    assert self.fade_target == 0
+            # I think may be ok. I think it's an absolute adjustment that doesn't change
             self.toolhead.move([x, y, z + self.fade_target, e], speed,
                                secs, start_accel, jerk,
                                ext_end_v, ext_start_accel, ext_jerk)
         else:
+            print('jmesh - ', newpos, speed, secs, start_accel, jerk)
+            assert not start_accel and not jerk # make sure both are None or 0
             self.splitter.build_move(self.last_position, newpos, factor)
+            currPos = self.last_position
             while not self.splitter.traverse_complete:
                 split_move = self.splitter.split()
                 if split_move:
+                    newSecs = None
+                    if secs is not None:
+                        adist = math.sqrt(sum([ (split_move[i] - currPos[i])**2 for i in range(2) ]))
+                        newSecs = adist / speed
+                        currPos = split_move
                     self.toolhead.move(split_move, speed,
-                                       secs, start_accel, jerk,
+                                       newSecs, start_accel, jerk,
                                        ext_end_v, ext_start_accel, ext_jerk)
                 else:
                     raise self.gcode.error(

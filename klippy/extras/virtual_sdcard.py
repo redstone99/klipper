@@ -230,7 +230,8 @@ class VirtualSD:
         partial_input = ""
         lines = []
         error_message = None
-        while not self.must_pause_work:
+        toolhead = self.printer.lookup_object('toolhead')
+        while not self.must_pause_work or not toolhead.last_move_can_pause():
             if not lines:
                 # Read more data
                 try:
