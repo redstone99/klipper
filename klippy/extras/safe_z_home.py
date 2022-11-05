@@ -29,8 +29,9 @@ class SafeZHoming:
         toolhead = self.printer.lookup_object('toolhead')
         probe = self.printer.lookup_object('probe')
         # Home Z
-        g28_gcmd = self.gcode.create_gcode_command("G28", "G28", {'Z': '0'})
-        self.prev_G28(g28_gcmd)
+        self.gcode.run_script_from_command('G28 Z')
+        pos = toolhead.get_position()
+        toolhead.manual_move([None, None, pos[2] + probe.sample_retract_dist], probe.speed)
         # Now do more detailed probing
         rez = probe.run_probe(gcmd)
         pos = toolhead.get_position()
