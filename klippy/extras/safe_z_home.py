@@ -19,11 +19,20 @@ class SafeZHoming:
         self.gcode = self.printer.lookup_object('gcode')
         self.prev_G28 = self.gcode.register_command("G28", None)
         self.gcode.register_command("G28", self.cmd_G28)
+        self.gcode.register_command('JPROBE', self.cmd_JProbe)
 
         if config.has_section("homing_override"):
             raise config.error("homing_override and safe_z_homing cannot"
                                +" be used simultaneously")
 
+    def cmd_JProbe(self, gcmd):
+        toolhead = self.printer.lookup_object('toolhead')
+        probe = self.printer.lookup_object('probe')
+        rez = probe.run_probe(gcmd)
+        pos = toolhead.get_position()
+        print("jprobe: ", rez, probe.z_offset, pos[2])
+        assert pos[2] >= 0
+        toolhead.manual_move([None, None, pos[2] + self.z_hop], self.z_hop_speed)
     def cmd_G28(self, gcmd):
         toolhead = self.printer.lookup_object('toolhead')
 
