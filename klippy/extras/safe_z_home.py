@@ -28,11 +28,21 @@ class SafeZHoming:
     def cmd_JProbe(self, gcmd):
         toolhead = self.printer.lookup_object('toolhead')
         probe = self.printer.lookup_object('probe')
+        # Home Z
+        g28_gcmd = self.gcode.create_gcode_command("G28", "G28", {'Z': '0'})
+        self.prev_G28(g28_gcmd)
+        # Now do more detailed probing
         rez = probe.run_probe(gcmd)
         pos = toolhead.get_position()
-        print("jprobe: ", rez, probe.z_offset, pos[2])
+        self.gcode.respond_info("jprobe: head z move since probe: %g (%g vs %g)" % (
+            pos[2] - rez[2], pos[2], rez[2]))
+        #print("jprobe: ", rez, probe.z_offset, pos[2])
+        if abs(pos[2] - rez[2]) > 1.0:
+            raise gcmd.error("Somehow head moved after probing: %g vs %g" % (pos[2], rez[2]))
+        pos[2] = probe.z_offset + (pos[2] - rez[2])
         assert pos[2] >= 0
-        toolhead.manual_move([None, None, pos[2] + self.z_hop], self.z_hop_speed)
+        toolhead.set_position(pos, homing_axes=[2])
+        toolhead.manual_move([None, None, pos[2] + probe.sample_retract_dist], self.z_hop_speed)
     def cmd_G28(self, gcmd):
         toolhead = self.printer.lookup_object('toolhead')
 
