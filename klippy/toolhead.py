@@ -576,6 +576,8 @@ class ToolHead:
         move = Move(self, self.commanded_pos, newpos, speed,
                     secs, start_accel, jerk,
                     ext_end_v, ext_start_accel, ext_jerk)
+        print("Move requested: ", newpos, speed, move.axes_d)
+        traceback.print_stack()
         if not move.move_d:
             return
         if move.is_kinematic_move:
