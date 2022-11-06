@@ -35,6 +35,7 @@ class SafeZHoming:
         # Now do more detailed probing
         rez = probe.run_probe(gcmd)
         pos = toolhead.get_position()
+        # I think pos[2] reflects the last probe, but rez[2] reflect the average
         self.gcode.respond_info("jprobe: head z move since probe: %g (%g vs %g)" % (
             pos[2] - rez[2], pos[2], rez[2]))
         #print("jprobe: ", rez, probe.z_offset, pos[2])
