@@ -363,7 +363,6 @@ class ToolHead:
         self.idle_flush_print_time = 0.
         self.print_stall = 0
         self.drip_completion = None
-        self.gcode_min_z = None # Prevent gcode commands to z lower than this
         # Kinematic step generation scan window time tracking
         self.kin_flush_delay = SDS_CHECK_TIME
         self.kin_flush_times = []
@@ -399,7 +398,6 @@ class ToolHead:
                                self.cmd_SET_VELOCITY_LIMIT,
                                desc=self.cmd_SET_VELOCITY_LIMIT_help)
         gcode.register_command('M204', self.cmd_M204)
-        gcode.register_command('SET_MIN_Z', self.cmd_SET_MIN_Z)
         # Load some default modules
         modules = ["gcode_move", "homing", "idle_timeout", "statistics",
                    "manual_probe", "tuning_tower"]
@@ -582,8 +580,6 @@ class ToolHead:
         #traceback.print_stack()
         if not move.move_d:
             return
-        if self.gcode_min_z is not None and move.end_pos[2] < self.gcode_min_z:
-            raise move.move_error("Move to Z below minimum prohibited")
         if move.is_kinematic_move:
             self.kin.check_move(move)
         if move.axes_d[3]:
@@ -593,9 +589,6 @@ class ToolHead:
         self.move_queue.add_move(move)
         if self.print_time > self.need_check_stall:
             self._check_stall()
-    def cmd_SET_MIN_Z(self, gcmd):
-        self.gcode_min_z = gcmd.get_float('Z', None, minval=0.)
-        print("Setting min z to ", self.gcode_min_z)
     # Is print head halt-able at this point.  Invariant which G7 breaks
     # is that the MoveQueue always can end with v=0
     def last_move_can_pause(self):
