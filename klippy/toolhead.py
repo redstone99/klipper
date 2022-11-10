@@ -99,8 +99,8 @@ class Move:
         speed2 = speed**2
         if self.moveType == MoveType.withJerk:
             # Not a perfect check because jerk could mean that extremum is in the middle somewhere.
-            if speed2 < self.start_v or speed2 < self.end_v or accel < self.accel:
-                raise self.move_error("move with jerk violates some limit %.5g vs %.5g and %.5g,%.5g" % (speed, math.sqrt(self.max_cruise_v2)), accel, self.accel)
+            if speed < self.start_v or speed < self.end_v or accel < self.accel:
+                raise self.move_error("move with jerk violates some limit %.5g vs %.5g, %g and %.5g,%.5g" % (speed, self.start_v, self.end_v, accel, self.accel))
             return
         if speed2 < self.max_cruise_v2:
             self.max_cruise_v2 = speed2
