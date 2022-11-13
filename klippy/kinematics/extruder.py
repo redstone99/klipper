@@ -273,8 +273,9 @@ class PrinterExtruder:
         if axis_r > 0. and (move.axes_d[0] or move.axes_d[1]):
             can_pressure_advance = True
         # Queue movement (x is extruder movement, y is pressure advance flag)
+        print('geez', move.moveType, move.ext_jerk, move.axes_d)
         if move.moveType == MoveType.withJerk:
-            if self.extruder_stepper is not None and self.extruder_stepper.pressure_advance != 0 and move.ext_jerk != 0:
+            if self.extruder_stepper is not None and self.extruder_stepper.pressure_advance != 0 and (move.ext_jerk != 0 or move.jerk != 0):
                 # This test isn't prefect since the state of pressure advance could change
                 # bewteen when we check now and when generate_steps happens
                 raise move.move_error("Attempt to G7 extruder with pressure advance enabled")
