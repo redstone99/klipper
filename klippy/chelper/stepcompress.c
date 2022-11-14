@@ -209,6 +209,8 @@ check_line(struct stepcompress *sc, struct step_move move)
 {
     if (!CHECK_LINES)
         return 0;
+    printf("fuckj - stepcompress o=%d i=%d c=%d a=%d:\n"
+               , sc->oid, move.interval, move.count, move.add);
     if (!move.count || (!move.interval && !move.add && move.count > 1)
         || move.interval >= 0x80000000) {
         errorf("stepcompress o=%d i=%d c=%d a=%d: Invalid sequence"

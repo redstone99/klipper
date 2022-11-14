@@ -52,6 +52,7 @@ class MCU_stepper:
         self._trapq = ffi_main.NULL
         self._mcu.get_printer().register_event_handler('klippy:connect',
                                                        self._query_mcu_position)
+        print("Created stepper ", self._oid, self._name)
     def get_mcu(self):
         return self._mcu
     def get_name(self, short=False):

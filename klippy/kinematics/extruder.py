@@ -235,6 +235,9 @@ class PrinterExtruder:
                     "Extrude only move too long (%.3fmm vs %.3fmm)\n"
                     "See the 'max_extrude_only_distance' config"
                     " option for details" % (move.axes_d[3], self.max_e_dist))
+            if move.moveType == MoveType.withJerk and move.secs > 0:
+                # A calculated move that may retract filament while the toolhead is moving.
+                return
             inv_extrude_r = 1. / abs(axis_r)
             move.limit_speed(self.max_e_velocity * inv_extrude_r,
                              self.max_e_accel * inv_extrude_r)
