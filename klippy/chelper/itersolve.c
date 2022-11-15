@@ -24,7 +24,7 @@ struct timepos {
 
 #define SEEK_TIME_RESET 0.000100
 
-#if 0
+#if 1
 struct stepcompress {
     // Buffer management
     uint32_t *queue, *queue_end, *queue_pos, *queue_next;
