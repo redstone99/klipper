@@ -586,6 +586,7 @@ class ToolHead:
         ffi_main, ffi_lib = chelper.get_ffi()
         ffi_lib.trapq_set_position(self.trapq, self.print_time,
                                    newpos[0], newpos[1], newpos[2])
+        self.last_end_v[2] = None
         self.commanded_pos[:] = newpos
         self.kin.set_position(newpos, homing_axes)
         self.printer.send_event("toolhead:set_position")
@@ -639,6 +640,7 @@ class ToolHead:
     def set_extruder(self, extruder, extrude_pos):
         self.extruder = extruder
         self.commanded_pos[3] = extrude_pos
+        self.last_end_v[2] = None
     def get_extruder(self):
         return self.extruder
     # Homing "drip move" handling
