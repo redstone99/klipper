@@ -58,6 +58,13 @@ class Move:
             if abs(expected_move_d - self.move_d) > 1e-3:
                 raise self.move_error("move paramters not self consistent distance %.5g vs %.5g (%.5g)" % (
                     expected_move_d, self.move_d, expected_move_d - self.move_d))
+
+            ext_dist = self.end_pos[3] - self.start_pos[3]
+            expect_ext_dist = self.ext_start_v * secs + 0.5 * self.ext_start_accel * (secs**2) + 1.0/6.0*self.ext_jerk*(secs**3)
+            if abs(ext_dist - expect_ext_dist) > 1e-4:
+                raise self.move_error("move extruder paramters not self consistent distance %.5g vs %.5g (%.5g)" % (
+                    expect_ext_dist, ext_dist, expect_ext_dist - ext_dist))
+            
         else:
             assert secs == None and start_accel == None
         
@@ -180,8 +187,8 @@ class MoveQueue:
         self.toolhead = toolhead
         self.queue = []
         self.junction_flush = LOOKAHEAD_FLUSH_TIME
-        self.last_end_v = 0
-        self.ext_last_end_v = 0
+        #self.last_end_v = 0
+        #self.ext_last_end_v = 0
     def reset(self):
         del self.queue[:]
         self.junction_flush = LOOKAHEAD_FLUSH_TIME
@@ -375,7 +382,7 @@ class ToolHead:
         self.trapq_append2 = ffi_lib.trapq_append2
         self.trapq_finalize_moves = ffi_lib.trapq_finalize_moves
         self.step_generators = []
-        self.last_end_v = [0, 0]
+        self.last_end_v = [0, 0, None]
         # Create kinematics class
         gcode = self.printer.lookup_object('gcode')
         self.Coord = gcode.Coord
@@ -434,6 +441,7 @@ class ToolHead:
                                     curtime, est_print_time, self.print_time)
 
     def check_junction(self, move):
+        #print("check_junction", move.start_pos, move.end_pos)
         if abs(self.last_end_v[0] - move.start_v) > 1e-4:
             raise move.move_error("end_v doesn't match start_v of next move %.8f vs %.8f (%.5g)" % (
                 self.last_end_v[0], move.start_v, self.last_end_v[0] - move.start_v))
@@ -450,7 +458,14 @@ class ToolHead:
             # due to extruder instant_corner_v
             raise move.move_error("extruder end_v doesn't match start_v of next move %.5g vs %.5g" % (
                 self.last_end_v[1], ext_start_v))
-        self.last_end_v = [ move.end_v, ext_end_v ]
+
+        if self.last_end_v[2] is not None and self.special_queuing_state != "Drip":
+            for i in (0,1,2,3):
+                if abs(self.last_end_v[2].end_pos[i] - move.start_pos[i]) > 1e-6:
+                    print(self.special_queuing_state)
+                    raise move.move_error("Illegal instantaneous position change in move %d: %g->%g" % (i, self.last_end_v[2].end_pos[i], move.start_pos[i]))
+            
+        self.last_end_v = [ move.end_v, ext_end_v, move ]
 
     def _process_moves(self, moves):
         # Resync print_time if necessary

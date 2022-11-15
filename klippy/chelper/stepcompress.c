@@ -107,6 +107,7 @@ minmax_point(struct stepcompress *sc, uint32_t *pos)
 static struct step_move
 compress_bisect_add(struct stepcompress *sc)
 {
+  //printf("fuck compress_bisect_add\n");
     uint32_t *qlast = sc->queue_next;
     if (qlast > sc->queue_pos + 65535)
         qlast = sc->queue_pos + 65535;
@@ -117,6 +118,7 @@ compress_bisect_add(struct stepcompress *sc)
     int32_t zerointerval = 0, zerocount = 0;
 
     for (;;) {
+      //printf("  Trying with add=%d\n", add);
         // Find longest valid sequence with the given 'add'
         struct points nextpoint;
         int32_t nextmininterval = outer_mininterval;
@@ -124,8 +126,10 @@ compress_bisect_add(struct stepcompress *sc)
         int32_t nextcount = 1;
         for (;;) {
             nextcount++;
+            //printf("    %d: %ud\n", nextcount, sc->queue_pos[nextcount - 1]);
             if (&sc->queue_pos[nextcount-1] >= qlast) {
                 int32_t count = nextcount - 1;
+                //printf("  bailing %d %d %d %d %d\n", zerointerval, zerocount, bestinterval, bestcount, bestadd);
                 return (struct step_move){ interval, count, add };
             }
             nextpoint = minmax_point(sc, sc->queue_pos + nextcount - 1);
@@ -192,9 +196,12 @@ compress_bisect_add(struct stepcompress *sc)
             break;
         add = maxadd - (maxadd - minadd) / 4;
     }
-    if (zerocount + zerocount/16 >= bestcount)
+    //printf("end %d %d %d %d %d\n", zerointerval, zerocount, bestinterval, bestcount, bestadd);
+    if (zerocount + zerocount/16 >= bestcount) {
         // Prefer add=0 if it's similar to the best found sequence
-        return (struct step_move){ zerointerval, zerocount, 0 };
+      //printf("zero %d %d %d\n", zerointerval, zerocount, 0);
+      return (struct step_move){ zerointerval, zerocount, 0 };
+    }
     return (struct step_move){ bestinterval, bestcount, bestadd };
 }
 
@@ -209,8 +216,8 @@ check_line(struct stepcompress *sc, struct step_move move)
 {
     if (!CHECK_LINES)
         return 0;
-    printf("fuckj - stepcompress o=%d i=%d c=%d a=%d:\n"
-               , sc->oid, move.interval, move.count, move.add);
+    //printf("fuckj - stepcompress o=%d i=%d c=%d a=%d:\n"
+    //           , sc->oid, move.interval, move.count, move.add);
     if (!move.count || (!move.interval && !move.add && move.count > 1)
         || move.interval >= 0x80000000) {
         errorf("stepcompress o=%d i=%d c=%d a=%d: Invalid sequence"
@@ -483,15 +490,20 @@ queue_append_extend(struct stepcompress *sc)
 static int
 queue_append(struct stepcompress *sc)
 {
-    if (unlikely(sc->next_step_dir != sc->sdir)) {
+  //printf("queue_append %d: %lu\n", sc->oid, sc->next_step_clock);
+  if (unlikely(sc->next_step_dir != sc->sdir)) {
         int ret = set_next_step_dir(sc, sc->next_step_dir);
         if (ret)
             return ret;
     }
-    if (unlikely(sc->next_step_clock >= sc->last_step_clock + CLOCK_DIFF_MAX))
-        return queue_append_far(sc);
-    if (unlikely(sc->queue_next >= sc->queue_end))
+  if (unlikely(sc->next_step_clock >= sc->last_step_clock + CLOCK_DIFF_MAX)) {
+    //printf("  queue_append: far %lu\n", sc->last_step_clock);
+    return queue_append_far(sc);
+  }
+  if (unlikely(sc->queue_next >= sc->queue_end)) {
+    //printf("  queue_append: extend\n");
         return queue_append_extend(sc);
+  }
     *sc->queue_next++ = sc->next_step_clock;
     sc->next_step_clock = 0;
     return 0;
@@ -504,7 +516,7 @@ int
 stepcompress_append(struct stepcompress *sc, int sdir
                     , double print_time, double step_time)
 {
-    // Calculate step clock
+  // Calculate step clock
     double offset = print_time - sc->last_step_print_time;
     double rel_sc = (step_time + offset) * sc->mcu_freq;
     uint64_t step_clock = sc->last_step_clock + (uint64_t)rel_sc;

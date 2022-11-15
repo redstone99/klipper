@@ -276,7 +276,7 @@ class PrinterExtruder:
         if axis_r > 0. and (move.axes_d[0] or move.axes_d[1]):
             can_pressure_advance = True
         # Queue movement (x is extruder movement, y is pressure advance flag)
-        print('geez', move.moveType, move.ext_jerk, move.axes_d)
+        #print('geez', move.moveType, move.start_pos, move.end_pos, move.ext_start_v, move.ext_start_accel, move.ext_jerk, move.secs, move.ext_end_v)
         if move.moveType == MoveType.withJerk:
             if self.extruder_stepper is not None and self.extruder_stepper.pressure_advance != 0 and (move.ext_jerk != 0 or move.jerk != 0):
                 # This test isn't prefect since the state of pressure advance could change

@@ -12,7 +12,7 @@
 #include "pyhelper.h" // errorf
 #include "stepcompress.h" // queue_append_start
 #include "trapq.h" // struct move
-
+#include <stdio.h>
 
 /****************************************************************
  * Main iterative solver
@@ -24,22 +24,57 @@ struct timepos {
 
 #define SEEK_TIME_RESET 0.000100
 
+#if 0
+struct stepcompress {
+    // Buffer management
+    uint32_t *queue, *queue_end, *queue_pos, *queue_next;
+    // Internal tracking
+    uint32_t max_error;
+    double mcu_time_offset, mcu_freq, last_step_print_time;
+    // Message generation
+    uint64_t last_step_clock;
+    struct list_head msg_queue;
+    uint32_t oid;
+    int32_t queue_step_msgtag, set_next_step_dir_msgtag;
+    int sdir, invert_sdir;
+    // Step+dir+step filter
+    uint64_t next_step_clock;
+    int next_step_dir;
+    // History tracking
+    int64_t last_position;
+    struct list_head history_list;
+};
+#endif
+
 // Generate step times for a portion of a move
 static int32_t
 itersolve_gen_steps_range(struct stepper_kinematics *sk, struct move *m
                           , double abs_start, double abs_end)
 {
-    sk_calc_callback calc_position_cb = sk->calc_position_cb;
+  //printf("gen steps %d: t=%g start_v=%g accel=%g jerk=%g start_pos=%g,%g\n", sk->sc->oid,
+  //m->move_t, m->start_v, m->half_accel*2.0, m->sixth_jerk*6.0,
+  //       m->start_pos.x, m->start_pos.y);
+  sk_calc_callback calc_position_cb = sk->calc_position_cb;
     double half_step = .5 * sk->step_dist;
     double start = abs_start - m->print_time, end = abs_end - m->print_time;
     if (start < 0.)
         start = 0.;
     if (end > m->move_t)
         end = m->move_t;
+    //printf("  gen steps2: start=%g end=%g\n", start, end);
     struct timepos old_guess = {start, sk->commanded_pos}, guess = old_guess;
     int sdir = stepcompress_get_step_dir(sk->sc);
     int is_dir_change = 0, have_bracket = 0, check_oscillate = 0;
     double target = sk->commanded_pos + (sdir ? half_step : -half_step);
+
+    double t = calc_position_cb(sk, m, start);
+    double instant_steps = fabs(t - sk->commanded_pos) / half_step;
+    if (instant_steps > 5.0) {
+      // We're asking for instantaneous jump - I don't see how that could work.
+      errorf("itersolve_gen_steps_range %d: Instantaneous position change by %g steps: move.start=%g commanded_pos=%g half_step=%g\n",
+             sk->sc->oid, instant_steps, t, sk->commanded_pos, half_step);
+      return ERROR_RET;
+    }
     double last_time=start, low_time=start, high_time=start + SEEK_TIME_RESET;
     if (high_time > end)
         high_time = end;
@@ -105,6 +140,9 @@ itersolve_gen_steps_range(struct stepper_kinematics *sk, struct move *m
             }
         }
         // Found next step - submit it
+        //printf("  stepcompress_append: %g %g %g %g %g %g\n",
+        //       m->print_time, guess.time, guess.position,
+        //       guess_dist, target, half_step);
         int ret = stepcompress_append(sk->sc, sdir, m->print_time, guess.time);
         if (ret)
             return ret;
