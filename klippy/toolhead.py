@@ -459,13 +459,16 @@ class ToolHead:
             raise move.move_error("extruder end_v doesn't match start_v of next move %.5g vs %.5g" % (
                 self.last_end_v[1], ext_start_v))
 
-        if self.last_end_v[2] is not None and self.special_queuing_state != "Drip":
+        tmove = move
+        if self.special_queuing_state == "Drip":
+            tmove = None
+        elif self.last_end_v[2] is not None:
             for i in (0,1,2,3):
-                if abs(self.last_end_v[2].end_pos[i] - move.start_pos[i]) > 1e-6:
+                if abs(self.last_end_v[2].end_pos[i] - move.start_pos[i]) > 1e-3:
                     print(self.special_queuing_state)
                     raise move.move_error("Illegal instantaneous position change in move %d: %g->%g" % (i, self.last_end_v[2].end_pos[i], move.start_pos[i]))
             
-        self.last_end_v = [ move.end_v, ext_end_v, move ]
+        self.last_end_v = [ move.end_v, ext_end_v, tmove ]
 
     def _process_moves(self, moves):
         # Resync print_time if necessary
