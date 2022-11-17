@@ -65,13 +65,13 @@ itersolve_gen_steps_range(struct stepper_kinematics *sk, struct move *m
     double target = sk->commanded_pos + (sdir ? half_step : -half_step);
 
     double t = calc_position_cb(sk, m, start);
-    printf("  gen steps %d: t=%g start_v=%g accel=%g jerk=%g start_pos=%g,%g commanded_pos=%g astartpos=%g\n", sk->sc->oid,
-           m->move_t, m->start_v, m->half_accel*2.0, m->sixth_jerk*6.0,
+    printf("    do gen steps %d: t=%g[%g->%g] start_v=%g accel=%g jerk=%g start_pos=%g,%g commanded_pos=%g astartpos=%g\n", sk->sc->oid,
+           m->move_t, start, end, m->start_v, m->half_accel*2.0, m->sixth_jerk*6.0,
            m->start_pos.x, m->start_pos.y, sk->commanded_pos, t);
     double instant_steps = fabs(t - sk->commanded_pos) / half_step;
     if (instant_steps > 5.0) {
       // We're asking for instantaneous jump - I don't see how that could work.
-      printf("  j-itersolve_gen_steps_range %d: Instantaneous position change by %g steps: move.start=%g commanded_pos=%g half_step=%g\n",
+      printf("      j-itersolve_gen_steps_range %d: Instantaneous position change by %g steps: move.start=%g commanded_pos=%g half_step=%g\n",
              sk->sc->oid, instant_steps, t, sk->commanded_pos, half_step);
       errorf("itersolve_gen_steps_range %d: Instantaneous position change by %g steps: move.start=%g commanded_pos=%g half_step=%g\n",
              sk->sc->oid, instant_steps, t, sk->commanded_pos, half_step);
@@ -197,9 +197,9 @@ itersolve_generate_steps(struct stepper_kinematics *sk, double flush_time)
     double force_steps_time = sk->last_move_time + sk->gen_steps_post_active;
     int skip_count = 0;
     for (;;) {
-      printf("gen steps %d: pt=%g t=%g start_v=%g accel=%g jerk=%g start_pos=%g,%g\n", sk->sc->oid,
+      printf("gen steps %d: pt=%g t=%g start_v=%g accel=%g jerk=%g start_pos=%g,%g axes_r=%g,%g\n", sk->sc->oid,
              m->print_time, m->move_t, m->start_v, m->half_accel*2.0, m->sixth_jerk*6.0,
-             m->start_pos.x, m->start_pos.y);
+             m->start_pos.x, m->start_pos.y, m->axes_r.x, m->axes_r.y);
       double move_start = m->print_time, move_end = move_start + m->move_t;
         if (check_active(sk, m)) {
             if (skip_count && sk->gen_steps_pre_active) {
