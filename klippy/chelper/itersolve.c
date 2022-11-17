@@ -203,9 +203,9 @@ itersolve_generate_steps(struct stepper_kinematics *sk, double flush_time)
     double force_steps_time = sk->last_move_time + sk->gen_steps_post_active;
     int skip_count = 0;
     for (;;) {
-      printf("gen steps %d: pt=%g t=%g start_v=%g accel=%g jerk=%g start_pos=%g,%g axes_r=%g,%g\n", sk->sc->oid,
+      printf("gen steps %d: pt=%g t=%g start_v=%g accel=%g jerk=%g start_pos=%g,%g,%g axes_r=%g,%g,%g\n", sk->sc->oid,
              m->print_time, m->move_t, m->start_v, m->half_accel*2.0, m->sixth_jerk*6.0,
-             m->start_pos.x, m->start_pos.y, m->axes_r.x, m->axes_r.y);
+             m->start_pos.x, m->start_pos.y, m->start_pos.z, m->axes_r.x, m->axes_r.y, m->axes_r.z);
       double move_start = m->print_time, move_end = move_start + m->move_t;
         if (check_active(sk, m)) {
             if (skip_count && sk->gen_steps_pre_active) {
