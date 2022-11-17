@@ -213,8 +213,9 @@ itersolve_generate_steps(struct stepper_kinematics *sk, double flush_time)
              m->start_pos.x, m->start_pos.y, m->start_pos.z, m->axes_r.x, m->axes_r.y, m->axes_r.z);
       double move_start = m->print_time, move_end = move_start + m->move_t;
       if (move_start >= flush_time) {
-        printf("WARNING: oid=%d examining move in the future %g vs %g\n",
+        printf("WARNING: oid=%d examining move in the future %g (%g vs %g)\n",
                sk->sc->oid,
+               move_start - flush_time,
                flush_time, move_start);
       }
         if (check_active(sk, m)) {
