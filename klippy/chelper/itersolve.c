@@ -51,10 +51,7 @@ static int32_t
 itersolve_gen_steps_range(struct stepper_kinematics *sk, struct move *m
                           , double abs_start, double abs_end)
 {
-  //printf("gen steps %d: t=%g start_v=%g accel=%g jerk=%g start_pos=%g,%g\n", sk->sc->oid,
-  //m->move_t, m->start_v, m->half_accel*2.0, m->sixth_jerk*6.0,
-  //       m->start_pos.x, m->start_pos.y);
-  sk_calc_callback calc_position_cb = sk->calc_position_cb;
+    sk_calc_callback calc_position_cb = sk->calc_position_cb;
     double half_step = .5 * sk->step_dist;
     double start = abs_start - m->print_time, end = abs_end - m->print_time;
     if (start < 0.)
@@ -68,6 +65,9 @@ itersolve_gen_steps_range(struct stepper_kinematics *sk, struct move *m
     double target = sk->commanded_pos + (sdir ? half_step : -half_step);
 
     double t = calc_position_cb(sk, m, start);
+    printf("gen steps %d: t=%g start_v=%g accel=%g jerk=%g start_pos=%g,%g commanded_pos=%g astartpos=%g\n", sk->sc->oid,
+           m->move_t, m->start_v, m->half_accel*2.0, m->sixth_jerk*6.0,
+           m->start_pos.x, m->start_pos.y, sk->commanded_pos, t);
     double instant_steps = fabs(t - sk->commanded_pos) / half_step;
     if (instant_steps > 5.0) {
       // We're asking for instantaneous jump - I don't see how that could work.
