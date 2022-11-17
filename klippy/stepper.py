@@ -42,7 +42,7 @@ class MCU_stepper:
         self._reset_cmd_tag = self._get_position_cmd = None
         self._active_callbacks = []
         ffi_main, ffi_lib = chelper.get_ffi()
-        print("Stepper name=%s oid=%d" % (name, oid))
+        #print("Stepper name=%s oid=%d" % (name, oid))
         self._stepqueue = ffi_main.gc(ffi_lib.stepcompress_alloc(oid),
                                       ffi_lib.stepcompress_free)
         ffi_lib.stepcompress_set_invert_sdir(self._stepqueue, self._invert_dir)

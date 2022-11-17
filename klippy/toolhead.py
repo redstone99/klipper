@@ -482,9 +482,9 @@ class ToolHead:
         # Queue moves into trapezoid motion queue (trapq)
         next_move_time = self.print_time
         for move in moves:
-            print("trapq_append(%s): %s  start=%.5g %send=%.5g" % (
+            print("trapq_append(%s): %s %s  start=%.5g %send=%.5g" % (
                 "G7" if move.moveType == MoveType.withJerk else "G0",
-                str(move.axes_d), move.start_v,
+                str(move.axes_d), str(move.end_pos), move.start_v,
                 ("cruise=%.5g "%move.cruise_v) if move.moveType == MoveType.trapezoidal else "",
                 move.end_v))
             if move.is_kinematic_move:
