@@ -192,6 +192,7 @@ itersolve_generate_steps(struct stepper_kinematics *sk, double flush_time)
            sk->sc->oid,
            flush_time, sk->last_flush_time);
   }
+  printf("%d: start gen steps flush times %g -> %g\n", sk->sc->oid, sk->last_flush_time, flush_time);
   double last_flush_time = sk->last_flush_time;
     sk->last_flush_time = flush_time;
     if (!sk->tq)
@@ -230,7 +231,7 @@ itersolve_generate_steps(struct stepper_kinematics *sk, double flush_time)
                 } while (pm != m);
             }
             // Generate steps for this move
-            printf("  gen steps this mvoe %d\n", sk->sc->oid);
+            printf("  gen steps this move %d t %g->%g\n", sk->sc->oid, last_flush_time, flush_time);
             int32_t ret = itersolve_gen_steps_range(sk, m, last_flush_time
                                                     , flush_time);
             if (ret)
