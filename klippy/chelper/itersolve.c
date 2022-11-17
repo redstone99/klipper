@@ -64,19 +64,11 @@ itersolve_gen_steps_range(struct stepper_kinematics *sk, struct move *m
     int is_dir_change = 0, have_bracket = 0, check_oscillate = 0;
     double target = sk->commanded_pos + (sdir ? half_step : -half_step);
 
+    // could be invoking shaper_xy_calc_position...
     double t = calc_position_cb(sk, m, start);
     printf("    do gen steps %d: t=%g[%g->%g] start_v=%g accel=%g jerk=%g start_pos=%g,%g,%g commanded_pos=%g astartpos=%g\n", sk->sc->oid,
            m->move_t, start, end, m->start_v, m->half_accel*2.0, m->sixth_jerk*6.0,
            m->start_pos.x, m->start_pos.y, m->start_pos.z, sk->commanded_pos, t);
-    printf("      fuck %g,%g,%g %g %.10g redo=%g %g\n",
-           move_get_coord(m, start).x,
-           move_get_coord(m, start).y,
-           move_get_coord(m, start).z,
-           move_get_distance(m, start),
-           move_get_coord(m, start).x + move_get_coord(m, start).y,
-           calc_position_cb(sk, m, start),
-           calc_position_cb(sk, m, 0)
-           );
     double instant_steps = fabs(t - sk->commanded_pos) / half_step;
     if (instant_steps > 5.0) {
       // We're asking for instantaneous jump - I don't see how that could work.
@@ -195,7 +187,12 @@ check_active(struct stepper_kinematics *sk, struct move *m)
 int32_t __visible
 itersolve_generate_steps(struct stepper_kinematics *sk, double flush_time)
 {
-    double last_flush_time = sk->last_flush_time;
+  if (flush_time < sk->last_flush_time) {
+    printf("WARNING: oid=%d flush_time going backwards %g vs %g\n",
+           sk->sc->oid,
+           flush_time, sk->last_flush_time);
+  }
+  double last_flush_time = sk->last_flush_time;
     sk->last_flush_time = flush_time;
     if (!sk->tq)
         return 0;
@@ -222,7 +219,7 @@ itersolve_generate_steps(struct stepper_kinematics *sk, double flush_time)
                 while (--skip_count && pm->print_time > abs_start)
                     pm = list_prev_entry(pm, node);
                 do {
-                  printf("  gen steps prev mvoe %d: pt=%g t=%g start_v=%g accel=%g jerk=%g start_pos=%g,%g\n", sk->sc->oid,
+                  printf("  gen steps prev move %d: pt=%g t=%g start_v=%g accel=%g jerk=%g start_pos=%g,%g\n", sk->sc->oid,
                          pm->print_time, pm->move_t, pm->start_v, pm->half_accel*2.0, pm->sixth_jerk*6.0,
                          pm->start_pos.x, pm->start_pos.y);
                     int32_t ret = itersolve_gen_steps_range(sk, pm, abs_start
