@@ -68,12 +68,15 @@ itersolve_gen_steps_range(struct stepper_kinematics *sk, struct move *m
     printf("    do gen steps %d: t=%g[%g->%g] start_v=%g accel=%g jerk=%g start_pos=%g,%g,%g commanded_pos=%g astartpos=%g\n", sk->sc->oid,
            m->move_t, start, end, m->start_v, m->half_accel*2.0, m->sixth_jerk*6.0,
            m->start_pos.x, m->start_pos.y, m->start_pos.z, sk->commanded_pos, t);
-    printf("      fuck %g,%g,%g %g %g\n",
+    printf("      fuck %g,%g,%g %g %.10g redo=%g %g\n",
            move_get_coord(m, start).x,
            move_get_coord(m, start).y,
            move_get_coord(m, start).z,
            move_get_distance(m, start),
-           move_get_coord(m, start).x + move_get_coord(m, start).y);
+           move_get_coord(m, start).x + move_get_coord(m, start).y,
+           calc_position_cb(sk, m, start),
+           calc_position_cb(sk, m, 0)
+           );
     double instant_steps = fabs(t - sk->commanded_pos) / half_step;
     if (instant_steps > 5.0) {
       // We're asking for instantaneous jump - I don't see how that could work.
