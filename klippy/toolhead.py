@@ -315,7 +315,7 @@ class MoveQueue:
         if move.moveType == MoveType.trapezoidal:
             move.calc_junction(self.queue[-2])
         self.junction_flush -= move.min_move_t
-        print("add_move", self.junction_flush, move.min_move_t)
+        #print("add_move", self.junction_flush, move.min_move_t)
         if self.junction_flush <= 0.:
             # Enough moves have been queued to reach the target flush time.
             self.flush(lazy=True)
@@ -482,11 +482,11 @@ class ToolHead:
         # Queue moves into trapezoid motion queue (trapq)
         next_move_time = self.print_time
         for move in moves:
-            print("trapq_append(%s): %s %s  start=%.5g %send=%.5g" % (
+            print("trapq_append(%s): %s %s  v:(start=%g %send=%g) t:(s=%g c=%g e=%g)" % (
                 "G7" if move.moveType == MoveType.withJerk else "G0",
                 str(move.axes_d), str(move.end_pos), move.start_v,
-                ("cruise=%.5g "%move.cruise_v) if move.moveType == MoveType.trapezoidal else "",
-                move.end_v))
+                ("cruisev=%g "%move.cruise_v) if move.moveType == MoveType.trapezoidal else "",
+                move.end_v, move.accel_t, move.cruise_t, move.decel_t))
             if move.is_kinematic_move:
                 if move.moveType == MoveType.withJerk:
                     self.trapq_append2(
