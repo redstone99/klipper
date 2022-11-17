@@ -65,13 +65,15 @@ itersolve_gen_steps_range(struct stepper_kinematics *sk, struct move *m
     double target = sk->commanded_pos + (sdir ? half_step : -half_step);
 
     double t = calc_position_cb(sk, m, start);
-    printf("    do gen steps %d: t=%g[%g->%g] start_v=%g accel=%g jerk=%g start_pos=%g,%g commanded_pos=%g astartpos=%g\n", sk->sc->oid,
+    printf("    do gen steps %d: t=%g[%g->%g] start_v=%g accel=%g jerk=%g start_pos=%g,%g,%g commanded_pos=%g astartpos=%g\n", sk->sc->oid,
            m->move_t, start, end, m->start_v, m->half_accel*2.0, m->sixth_jerk*6.0,
-           m->start_pos.x, m->start_pos.y, sk->commanded_pos, t);
-    printf("      fuck %g,%g %g %g\n",
+           m->start_pos.x, m->start_pos.y, m->start_pos.z, sk->commanded_pos, t);
+    printf("      fuck %g,%g,%g %g %g\n",
            move_get_coord(m, start).x,
            move_get_coord(m, start).y,
-           move_get_distance(m, start), move_get_coord(m, start).x + move_get_coord(m, start).y);
+           move_get_coord(m, start).z,
+           move_get_distance(m, start),
+           move_get_coord(m, start).x + move_get_coord(m, start).y);
     double instant_steps = fabs(t - sk->commanded_pos) / half_step;
     if (instant_steps > 5.0) {
       // We're asking for instantaneous jump - I don't see how that could work.
@@ -322,7 +324,9 @@ void __visible
 itersolve_set_position(struct stepper_kinematics *sk
                        , double x, double y, double z)
 {
-    sk->commanded_pos = itersolve_calc_position_from_coord(sk, x, y, z);
+  double rez = itersolve_calc_position_from_coord(sk, x, y, z);
+  printf("Setting commanded_pos to %g\n", rez);
+  sk->commanded_pos = rez;
 }
 
 double __visible
