@@ -36,6 +36,23 @@ itersolve_gen_steps_range(struct stepper_kinematics *sk, struct move *m
         start = 0.;
     if (end > m->move_t)
         end = m->move_t;
+    if (end <= start) {
+      return 0;
+    }
+
+    // Check to see if the calculated stepper position at time t=start is diffeerent from
+    // the current stepper position sk->commanded_pos. If it is, then the code below
+    // would try to change the position instantly, generating stepper pulses with
+    // almost no delay between them, making the stepper try to accelerate infinitely fast,
+    // which probably isn't right.
+    double test_start_pos = calc_position_cb(sk, m, start);
+    double instant_steps = fabs(test_start_pos - sk->commanded_pos) / half_step;
+    if (instant_steps > 4.0) {
+      errorf("itersolve_gen_steps_range %d: Instantaneous position change by %g steps: move.start=%g commanded_pos=%g half_step=%g\n",
+             sk->sc->oid, instant_steps, t, sk->commanded_pos, half_step);
+      return ERROR_RET;
+    }
+
     struct timepos old_guess = {start, sk->commanded_pos}, guess = old_guess;
     int sdir = stepcompress_get_step_dir(sk->sc);
     int is_dir_change = 0, have_bracket = 0, check_oscillate = 0;
