@@ -46,6 +46,8 @@ struct stepcompress {
 };
 #endif
 
+static inline int check_active(struct stepper_kinematics *sk, struct move *m);
+
 // Generate step times for a portion of a move
 static int32_t
 itersolve_gen_steps_range(struct stepper_kinematics *sk, struct move *m
@@ -73,6 +75,10 @@ itersolve_gen_steps_range(struct stepper_kinematics *sk, struct move *m
       printf("       SKIPPING cuz negative end time\n");
       return 0;
     }
+    if (end <= start) {
+      printf("       SKIPPING cuz end before start\n");
+      return 0;
+    }
     double instant_steps = fabs(t - sk->commanded_pos) / half_step;
     if (instant_steps > 5.0) {
       // We're asking for instantaneous jump - I don't see how that could work.
@@ -85,6 +91,7 @@ itersolve_gen_steps_range(struct stepper_kinematics *sk, struct move *m
     double last_time=start, low_time=start, high_time=start + SEEK_TIME_RESET;
     if (high_time > end)
         high_time = end;
+    int stepCount = 0;
     for (;;) {
         // Use the "secant method" to guess a new time from previous guesses
         double guess_dist = guess.position - target;
@@ -150,6 +157,7 @@ itersolve_gen_steps_range(struct stepper_kinematics *sk, struct move *m
         //printf("  stepcompress_append: %g %g %g %g %g %g\n",
         //       m->print_time, guess.time, guess.position,
         //       guess_dist, target, half_step);
+        stepCount++;
         int ret = stepcompress_append(sk->sc, sdir, m->print_time, guess.time);
         if (ret)
             return ret;
@@ -167,6 +175,13 @@ itersolve_gen_steps_range(struct stepper_kinematics *sk, struct move *m
         is_dir_change = have_bracket = check_oscillate = 0;
     }
     sk->commanded_pos = target - (sdir ? half_step : -half_step);
+    if (!check_active(sk, m) && stepCount > 0) {
+      printf("      WARNING j-itersolve_gen_steps_range %d: inactive move generated stepCount=%d start_pos=%g,%g,%g pt=%g mt=%g %g %g %g\n",
+             sk->sc->oid, stepCount,
+             m->start_pos.x, m->start_pos.y, m->start_pos.z,
+             m->print_time, m->move_t, m->start_v, m->half_accel, m->sixth_jerk
+             );
+    }
     if (sk->post_cb)
         sk->post_cb(sk);
     return 0;
@@ -212,12 +227,12 @@ itersolve_generate_steps(struct stepper_kinematics *sk, double flush_time)
              m->print_time, m->move_t, m->start_v, m->half_accel*2.0, m->sixth_jerk*6.0,
              m->start_pos.x, m->start_pos.y, m->start_pos.z, m->axes_r.x, m->axes_r.y, m->axes_r.z);
       double move_start = m->print_time, move_end = move_start + m->move_t;
-      if (move_start >= flush_time) {
-        printf("WARNING: oid=%d examining move in the future %g (%g vs %g)\n",
-               sk->sc->oid,
-               move_start - flush_time,
-               flush_time, move_start);
-      }
+      //if (move_start >= flush_time) {
+      //  printf("WARNING: oid=%d examining move in the future %g (%g vs %g)\n",
+      //         sk->sc->oid,
+      //         move_start - flush_time,
+      //         flush_time, move_start);
+      //}
         if (check_active(sk, m)) {
             if (skip_count && sk->gen_steps_pre_active) {
                 // Must generate steps leading up to stepper activity
