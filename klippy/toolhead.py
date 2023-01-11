@@ -58,13 +58,11 @@ class Move:
             if abs(expected_move_d - self.move_d) > 1e-3:
                 raise self.move_error("move paramters not self consistent distance %.5g vs %.5g (%.5g)" % (
                     expected_move_d, self.move_d, expected_move_d - self.move_d))
-
-            ext_dist = self.end_pos[3] - self.start_pos[3]
+            ext_dist = self.axes_d[3]
             expect_ext_dist = self.ext_start_v * secs + 0.5 * self.ext_start_accel * (secs**2) + 1.0/6.0*self.ext_jerk*(secs**3)
             if abs(ext_dist - expect_ext_dist) > 1e-4:
                 raise self.move_error("move extruder paramters not self consistent distance %.5g vs %.5g (%.5g)" % (
                     expect_ext_dist, ext_dist, expect_ext_dist - ext_dist))
-            
         else:
             assert secs == None and start_accel == None
         
