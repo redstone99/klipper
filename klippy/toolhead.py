@@ -13,6 +13,39 @@ MoveType=chelper.MoveType
 # Class to track each move request
 # Note when jerk is not None, this is not a trapezoidal move. It is just a single accel segment.
 class Move:
+    def calcSignedStartV(self, dx, secs, start_accel, jerk, end_v):
+        assert False
+        sdx = 1.0 if dx >= 0 else -1.0
+        delta_v = secs*start_accel + 0.5*jerk*secs*secs
+        # Let's assume start_v and end_v are in same direction.
+        # And correct signed_start_vx if we need to.
+        start_v = end_v - delta_v
+        signed_start_vx = start_v * sdx;
+        signed_end_vx = end_v * sdx;
+        # If delta_v > 0 then start_v and end_v are in same direction.
+        # If delta_v is < 0 but is smaller than end_v, then both are still in same dir.
+        print('calcSignedStartV', dx, delta_v, end_v, signed_end_vx)
+        if delta_v < 0 and abs(delta_v) > end_v:
+            # Maybe we switched directions.
+            # If we didn't switch, then dist is:
+            dist = start_v*secs + 0.5*start_accel*secs*secs + 1.0/6.0*jerk*secs*secs*secs
+            if abs(dist - abs(dx)) > 1e-3:  
+                # we must have switched directions
+                start_v = -delta_v - end_v;
+                assert start_v >= 0
+                dist = start_v*secs + 0.5*start_accel*secs*secs + 1.0/6.0*jerk*secs*secs*secs
+                assert abs(abs(dist)-abs(dx)) < 1e-6, "%g %g" % (dist, dx)
+                print('  foo4', dist, start_v)
+                if (dist < 0):
+                    # start_v is in opposite dir as dx
+                    signed_start_vx = -start_v * sdx
+                else:
+                    signed_start_vx = start_v * sdx
+                    signed_end_vx = -end_v * sdx
+            else:
+                assert start_v >= 0
+        return (signed_start_vx, signed_end_vx)
+    
     def __init__(self, toolhead, start_pos, end_pos, speed,
                  secs, start_accel, jerk,
                  ext_end_v, ext_start_accel, ext_jerk):
@@ -21,51 +54,6 @@ class Move:
         self.end_pos = tuple(end_pos)
         self.axes_d = axes_d = [end_pos[i] - start_pos[i] for i in (0, 1, 2, 3)]
         self.move_d = move_d = math.sqrt(sum([d*d for d in axes_d[:3]]))
-        if abs(self.axes_d[0] - -0.37713) < 1e-4:
-            assert jerk is not None
-        if jerk is not None:
-            self.moveType = MoveType.withJerk
-        else:
-            self.moveType = MoveType.trapezoidal
-        # accel aka start_accel
-        self.secs = secs
-        self.end_v = speed
-        self.start_accel = start_accel
-        self.accel = start_accel if start_accel is not None else toolhead.max_accel
-        self.jerk = jerk
-        self.ext_start_accel = ext_start_accel
-        self.ext_jerk = ext_jerk
-        self.ext_end_v = ext_end_v
-        if self.moveType == MoveType.withJerk:
-            print("fuck G7", self.start_pos, self.end_pos, self.axes_d, secs, speed, start_accel, jerk)
-            #end_accel = start_accel + jerk * secs
-            self.start_v = speed - start_accel * secs - 0.5*jerk*(secs**2)
-            #self.start_v = speed - secs*(start_accel + 0.5*jerk*secs)
-            self.ext_start_v = ext_end_v - ext_start_accel * secs - 0.5*ext_jerk*(secs**2)
-            #assert self.start_v >= 0 and self.ext_start_v >= 0 and self.end_v >= 0
-            # self.ext_start_v can be negative.
-            assert self.start_v >= -1e-5 and self.end_v >= -1e-5, "%g %g" % (self.start_v, self.end_v)
-            self.start_v = max(0, self.start_v)
-            self.end_v = max(0, self.end_v)
-            if self.start_v == 0:
-                assert abs(self.ext_start_v) < 1e-5, "%g" % (self.ext_start_v)
-                self.ext_start_v = 0
-            if self.end_v == 0:
-                assert self.ext_end_v == 0, "%g" % (self.ext_end_v)
-            #print('fuck', self.start_v, secs, start_accel, jerk)
-            expected_move_d = self.start_v * secs + 0.5 * start_accel * (secs**2) + 1.0/6.0*jerk*(secs**3)
-            # TODO - this check needs to depend on precision of source gcode
-            if abs(expected_move_d - self.move_d) > 1e-3:
-                raise self.move_error("move paramters not self consistent distance %.5g vs %.5g (%.5g)" % (
-                    expected_move_d, self.move_d, expected_move_d - self.move_d))
-            ext_dist = self.axes_d[3]
-            expect_ext_dist = self.ext_start_v * secs + 0.5 * self.ext_start_accel * (secs**2) + 1.0/6.0*self.ext_jerk*(secs**3)
-            if abs(ext_dist - expect_ext_dist) > 1e-4:
-                raise self.move_error("move extruder paramters not self consistent distance %.5g vs %.5g (%.5g)" % (
-                    expect_ext_dist, ext_dist, expect_ext_dist - ext_dist))
-        else:
-            assert secs == None and start_accel == None
-        
         self.timing_callbacks = []
         velocity = min(speed, toolhead.max_velocity)
         self.is_kinematic_move = True
@@ -84,6 +72,69 @@ class Move:
         else:
             inv_move_d = 1. / move_d
         self.axes_r = [d * inv_move_d for d in axes_d]
+
+        ####################################
+        # G7 support
+        if jerk is not None:
+            self.moveType = MoveType.withJerk
+        else:
+            self.moveType = MoveType.trapezoidal
+        self.secs = secs
+        self.end_v = speed
+        self.start_accel = start_accel
+        self.accel = start_accel if start_accel is not None else toolhead.max_accel
+        self.jerk = jerk
+        self.ext_start_accel = ext_start_accel
+        self.ext_jerk = ext_jerk
+        self.ext_end_v = ext_end_v
+        assert self.end_v >= 0
+        if self.moveType == MoveType.trapezoidal:
+            self.signed_start_vx = None
+            self.signed_start_ve = None
+            self.signed_end_vx = self.end_v * self.axes_r[0] * (1.0 if axes_d[0] >= 0 else -1.0)
+            self.signed_end_ve = self.end_v * self.axes_r[3] * (1.0 if axes_d[3] >= 0 else -1.0)
+            assert secs == None and start_accel == None
+        else:
+            assert self.moveType == MoveType.withJerk
+            assert axes_d[1] == 0 and axes_d[2] == 0
+            assert secs > 0
+            if move_d == 0:
+                raise self.move_error("No move with zero dx but change in dE or end_v")
+            if axes_d[0] == 0:
+                raise self.move_error('no allow zero dist moves: %s'% self.axes_d)
+            tol = 1e-5
+            sdx = 1.0 if axes_d[0] >= 0 else -1.0
+            self.signed_end_vx = self.end_v * sdx
+            self.signed_end_ve = self.ext_end_v
+            delta_v = secs*start_accel + 0.5*jerk*secs*secs
+            # For toolhead, a move can never change directions.
+            # so delta_v is either negative or if it is positive, it is smaller than end_v
+            assert delta_v <= self.end_v + tol, "%g %g" % (delta_v, self.end_v)
+            self.signed_start_vx = (self.end_v - delta_v)*sdx
+            # For extruder, ext_end_v is signed an absolute direction.
+            # as is ext_jerk, ext_start_accel
+            ext_delta_v = secs*ext_start_accel + 0.5*ext_jerk*secs*secs
+            self.signed_start_ve = ext_end_v - ext_delta_v
+            print("fuck G7", self.start_pos, self.end_pos, self.axes_d, secs, speed, start_accel, jerk)
+
+            self.start_v = speed - start_accel * secs - 0.5*jerk*(secs**2)
+            self.ext_start_v = ext_end_v - ext_start_accel * secs - 0.5*ext_jerk*(secs**2)
+
+            aj = 0.5 * start_accel * (secs**2) + 1.0/6.0*jerk*(secs**3)
+            if self.axes_d[0] > 0:
+                expected_dx = self.signed_start_vx*secs + aj
+            else:
+                expected_dx = self.signed_start_vx*secs - aj
+            if abs(expected_dx - self.axes_d[0]) > 1e-3:
+                raise self.move_error("move paramters not self consistent distance %.5g, %.5g" % (
+                    expected_dx, self.axes_d[0]))
+                
+            eaj = 0.5 * ext_start_accel * (secs**2) + 1.0/6.0*ext_jerk*(secs**3)
+            expected_de = self.signed_start_ve*secs + eaj;
+            if abs(expected_de - self.axes_d[3]) > 1e-5:
+                raise self.move_error("move extruder paramters not self consistent distance %.5g, %.5g, %.5g %.5g s=%.5g e=%.5g" % (
+                    expected_de1, expected_de2, self.axes_d[3], eaj, self.signed_start_ve, self.signed_end_ve))
+        
         # Junction speeds are tracked in velocity squared.  The
         # delta_v2 is the maximum amount of this squared-velocity that
         # can change in this move.
@@ -381,6 +432,8 @@ class ToolHead:
         self.trapq_finalize_moves = ffi_lib.trapq_finalize_moves
         self.step_generators = []
         self.last_end_v = [0, 0, None]
+        self.prev_signed_end_vx = 0
+        self.prev_signed_end_ve = 0
         # Create kinematics class
         gcode = self.printer.lookup_object('gcode')
         self.Coord = gcode.Coord
@@ -439,23 +492,19 @@ class ToolHead:
                                     curtime, est_print_time, self.print_time)
 
     def check_junction(self, move):
-        #print("check_junction", move.start_pos, move.end_pos)
-        if abs(self.last_end_v[0] - move.start_v) > 1e-4:
-            raise move.move_error("end_v doesn't match start_v of next move %.8f vs %.8f (%.5g)" % (
-                self.last_end_v[0], move.start_v, self.last_end_v[0] - move.start_v))
-        if move.moveType == MoveType.withJerk:
-            ext_start_v = move.ext_start_v
-            ext_end_v = move.ext_end_v
-        else:
-            ext_start_v = move.start_v * move.axes_r[3]
-            ext_end_v = move.end_v * move.axes_r[3]
         #print("check_junction: ", ext_start_v, ext_end_v, self.last_end_v)
         #print(move.move_d, move.axes_d[3] / move.move_d, move.axes_d[3] / move.move_d * move.start_v, move.start_v, move.axes_r[3], ext_start_v)
-        if move.moveType == MoveType.withJerk and abs(self.last_end_v[1] - ext_start_v) > 1e-4:
-            # If mvoe is trapezoidal, it could have an instantaneous extruder change
-            # due to extruder instant_corner_v
-            raise move.move_error("extruder end_v doesn't match start_v of next move %.5g vs %.5g" % (
-                self.last_end_v[1], ext_start_v))
+        if move.moveType == MoveType.withJerk:
+            if abs(move.signed_start_vx - self.prev_signed_end_vx) > 1e-5:
+                raise move.move_error("start_v doesn't match end_v of previous move %.8f vs %.8f (%.5g)" % (
+                    self.prev_signed_end_vx, move.signed_start_vx, self.prev_signed_end_vx - move.signed_start_vx))
+            if abs(move.signed_start_ve - self.prev_signed_end_ve) > 1e-5:
+                # If mvoe is trapezoidal, it could have an instantaneous extruder change
+                # due to extruder instant_corner_v
+                raise move.move_error("extruder start_v doesn't match end_v of previous move %.5g vs %.5g" % (
+                    self.prev_signed_end_ve, move.signed_start_ve))
+        self.prev_signed_end_vx = move.signed_end_vx
+        self.prev_signed_end_ve = move.signed_end_ve
 
         tmove = move
         if self.special_queuing_state == "Drip":
@@ -466,7 +515,7 @@ class ToolHead:
                     print(self.special_queuing_state)
                     raise move.move_error("Illegal instantaneous position change in move %d: %g->%g" % (i, self.last_end_v[2].end_pos[i], move.start_pos[i]))
             
-        self.last_end_v = [ move.end_v, ext_end_v, tmove ]
+        self.last_end_v = [ move.end_v, move.ext_end_v, tmove ]
 
     def _process_moves(self, moves):
         # Resync print_time if necessary
@@ -635,6 +684,9 @@ class ToolHead:
             if not self.can_pause:
                 break
             eventtime = self.reactor.pause(eventtime + 0.100)
+        print('josh - pausing m400')
+        self.prev_signed_end_vx = 0
+        self.prev_signed_end_ve = 0
     def set_extruder(self, extruder, extrude_pos):
         self.extruder = extruder
         self.commanded_pos[3] = extrude_pos
