@@ -80,7 +80,7 @@ itersolve_gen_steps_range(struct stepper_kinematics *sk, struct move *m
       return 0;
     }
     double instant_steps = fabs(t - sk->commanded_pos) / half_step;
-    if (instant_steps > 5.0) {
+    if (instant_steps > 4.0) {
       // We're asking for instantaneous jump - I don't see how that could work.
       printf("      j-itersolve_gen_steps_range %d: Instantaneous position change by %g steps: move.start=%g commanded_pos=%g half_step=%g\n",
              sk->sc->oid, instant_steps, t, sk->commanded_pos, half_step);
