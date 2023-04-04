@@ -24,7 +24,7 @@ class Move:
         signed_end_vx = end_v * sdx;
         # If delta_v > 0 then start_v and end_v are in same direction.
         # If delta_v is < 0 but is smaller than end_v, then both are still in same dir.
-        print('calcSignedStartV', dx, delta_v, end_v, signed_end_vx)
+        logging.debug('calcSignedStartV %g %g %g %g', dx, delta_v, end_v, signed_end_vx)
         if delta_v < 0 and abs(delta_v) > end_v:
             # Maybe we switched directions.
             # If we didn't switch, then dist is:
@@ -35,7 +35,7 @@ class Move:
                 assert start_v >= 0
                 dist = start_v*secs + 0.5*start_accel*secs*secs + 1.0/6.0*jerk*secs*secs*secs
                 assert abs(abs(dist)-abs(dx)) < 1e-6, "%g %g" % (dist, dx)
-                print('  foo4', dist, start_v)
+                logging.debug('  foo4 %g %g', dist, start_v)
                 if (dist < 0):
                     # start_v is in opposite dir as dx
                     signed_start_vx = -start_v * sdx
@@ -115,7 +115,7 @@ class Move:
             # as is ext_jerk, ext_start_accel
             ext_delta_v = secs*ext_start_accel + 0.5*ext_jerk*secs*secs
             self.signed_start_ve = ext_end_v - ext_delta_v
-            print("fuck G7", self.start_pos, self.end_pos, self.axes_d, secs, speed, start_accel, jerk)
+            logging.debug("fuck G7 %s %s %s %g %g %g %g", self.start_pos, self.end_pos, self.axes_d, secs, speed, start_accel, jerk)
 
             self.start_v = speed - start_accel * secs - 0.5*jerk*(secs**2)
             self.ext_start_v = ext_end_v - ext_start_accel * secs - 0.5*ext_jerk*(secs**2)
@@ -166,7 +166,7 @@ class Move:
         self.delta_v2 = 2.0 * self.move_d * self.accel
         self.smooth_delta_v2 = min(self.smooth_delta_v2, self.delta_v2)
     def move_error(self, msg="Move out of range"):
-        print(self.axes_d)
+        logging.debug(self.axes_d)
         traceback.print_stack()
         ep = self.end_pos
         m = "%s: %.3f %.3f %.3f [%.3f]" % (msg, ep[0], ep[1], ep[2], ep[3])
@@ -263,14 +263,14 @@ class MoveQueue:
         next_end_v2 = next_smoothed_v2 = peak_cruise_v2 = 0.
         next_move = None
         next_start_v2 = 0.
-        print("START flush of len=", len(queue), lazy)
+        logging.debug("START flush of len=%d %s", len(queue), lazy)
         for i in range(flush_count-1, -1, -1):
             move = queue[i]
-            print("  %d(%s): %s" % (
+            logging.debug("  %d(%s): %s" % (
                 i, "G7" if move.moveType == MoveType.withJerk else "G0",
                 str(move.axes_d)))
             if move.moveType == MoveType.withJerk:
-                print("    start_v=%g end_v=%g ext_start_v=%g ext_end_v=%g" % (
+                logging.debug("    start_v=%g end_v=%g ext_start_v=%g ext_end_v=%g" % (
                     move.start_v, move.end_v, move.ext_start_v, move.ext_end_v))
                 if delayed:
                     # next_start_v2 hasn't been updated to next move yet.
@@ -292,7 +292,7 @@ class MoveQueue:
             smoothed_v2 = min(move.max_smoothed_v2, reachable_smoothed_v2)
             actual_start_v2 = 0.
             did_set = False
-            print("    reach=%.5g next=%.5g delta=%.5g v=%.5g peakc=%.5g" % (
+            logging.debug("    reach=%.5g next=%.5g delta=%.5g v=%.5g peakc=%.5g" % (
                   math.sqrt(reachable_smoothed_v2), math.sqrt(next_smoothed_v2),
                   math.sqrt(move.smooth_delta_v2), math.sqrt(smoothed_v2),
                 math.sqrt(peak_cruise_v2)))
@@ -303,7 +303,7 @@ class MoveQueue:
                     # This move can decelerate or this is a full accel
                     # move after a full decel move
                     if update_flush_count and peak_cruise_v2:
-                        print("    Setting flush_count=", i)
+                        logging.debug("    Setting flush_count=%d", i)
                         flush_count = i
                         update_flush_count = False
                     peak_cruise_v2 = min(move.max_cruise_v2, (
@@ -318,7 +318,7 @@ class MoveQueue:
                                 actual_end_v2   = min(me_v2, mc_v2)
                                 m.set_junction(actual_start_v2, mc_v2
                                                , actual_end_v2)
-                                print("    (delayed) set start_v=%.5g end_v=%.5g" % (
+                                logging.debug("    (delayed) set start_v=%.5g end_v=%.5g" % (
                                     math.sqrt(actual_start_v2), math.sqrt(actual_end_v2)))
                                 next_move = m
                         del delayed[:]
@@ -337,20 +337,20 @@ class MoveQueue:
                         assert move.end_v == 0
                     if len(self.queue) == 1:
                         assert actual_start_v2 == 0
-                    print("    set start_v=%.5g end_v=%.5g" % (
+                    logging.debug("    set start_v=%.5g end_v=%.5g" % (
                         math.sqrt(actual_start_v2), math.sqrt(actual_end_v2)))
                     next_move = move
             else:
                 # Delay calculating this move until peak_cruise_v2 is known
                 did_set = True
-                print("     delay append", next_move.axes_d if next_move else "None")
+                logging.debug("     delay append %s", next_move.axes_d if next_move else "None")
                 delayed.append((move, start_v2, next_end_v2))
             next_start_v2 = actual_start_v2
             next_end_v2 = start_v2
             next_smoothed_v2 = smoothed_v2
             next_move = move
             if not did_set:
-                print("    Skipping")
+                logging.debug("    Skipping")
         if update_flush_count or not flush_count:
             return
         # Generate step times for all moves ready to be flushed
@@ -364,7 +364,7 @@ class MoveQueue:
         if move.moveType == MoveType.trapezoidal:
             move.calc_junction(self.queue[-2])
         self.junction_flush -= move.min_move_t
-        #print("add_move", self.junction_flush, move.min_move_t)
+        #logging.debug("add_move", self.junction_flush, move.min_move_t)
         if self.junction_flush <= 0.:
             # Enough moves have been queued to reach the target flush time.
             self.flush(lazy=True)
@@ -492,8 +492,8 @@ class ToolHead:
                                     curtime, est_print_time, self.print_time)
 
     def check_junction(self, move):
-        #print("check_junction: ", ext_start_v, ext_end_v, self.last_end_v)
-        #print(move.move_d, move.axes_d[3] / move.move_d, move.axes_d[3] / move.move_d * move.start_v, move.start_v, move.axes_r[3], ext_start_v)
+        #logging.debug("check_junction: ", ext_start_v, ext_end_v, self.last_end_v)
+        #logging.debug(move.move_d, move.axes_d[3] / move.move_d, move.axes_d[3] / move.move_d * move.start_v, move.start_v, move.axes_r[3], ext_start_v)
         if move.moveType == MoveType.withJerk:
             if abs(move.signed_start_vx - self.prev_signed_end_vx) > 1e-5:
                 raise move.move_error("start_v doesn't match end_v of previous move %.8f vs %.8f (%.5g)" % (
@@ -512,7 +512,7 @@ class ToolHead:
         elif self.last_end_v[2] is not None:
             for i in (0,1,2,3):
                 if abs(self.last_end_v[2].end_pos[i] - move.start_pos[i]) > 1e-3:
-                    print(self.special_queuing_state)
+                    logging.debug(self.special_queuing_state)
                     raise move.move_error("Illegal instantaneous position change in move %d: %g->%g" % (i, self.last_end_v[2].end_pos[i], move.start_pos[i]))
             
         self.last_end_v = [ move.end_v, move.ext_end_v, tmove ]
@@ -529,7 +529,7 @@ class ToolHead:
         # Queue moves into trapezoid motion queue (trapq)
         next_move_time = self.print_time
         for move in moves:
-            print("trapq_append(%s): %s %s  v:(start=%g %send=%g) t:(s=%g c=%g e=%g)" % (
+            logging.debug("trapq_append(%s): %s %s  v:(start=%g %send=%g) t:(s=%g c=%g e=%g)" % (
                 "G7" if move.moveType == MoveType.withJerk else "G0",
                 str(move.axes_d), str(move.end_pos), move.start_v,
                 ("cruisev=%g "%move.cruise_v) if move.moveType == MoveType.trapezoidal else "",
@@ -643,7 +643,7 @@ class ToolHead:
         move = Move(self, self.commanded_pos, newpos, speed,
                     secs, start_accel, jerk,
                     ext_end_v, ext_start_accel, ext_jerk)
-        #print("Move requested: ", newpos, speed, move.axes_d)
+        #logging.debug("Move requested: ", newpos, speed, move.axes_d)
         #traceback.print_stack()
         if not move.move_d:
             return
@@ -671,7 +671,7 @@ class ToolHead:
         self.move(curpos, speed)
         self.printer.send_event("toolhead:manual_move")
     def dwell(self, delay):
-        print("Josh - sleeping for a second", delay)
+        logging.debug("Josh - sleeping for a second=%g", delay)
         time.sleep(delay / 1000.)
         next_print_time = self.get_last_move_time() + max(0., delay)
         self._update_move_time(next_print_time)
@@ -684,7 +684,7 @@ class ToolHead:
             if not self.can_pause:
                 break
             eventtime = self.reactor.pause(eventtime + 0.100)
-        print('josh - pausing m400')
+        logging.debug('josh - pausing m400')
         self.prev_signed_end_vx = 0
         self.prev_signed_end_ve = 0
     def set_extruder(self, extruder, extrude_pos):

@@ -24,6 +24,8 @@ struct timepos {
 
 #define SEEK_TIME_RESET 0.000100
 
+//#define DEUBG
+
 #if 1
 struct stepcompress {
     // Buffer management
@@ -68,22 +70,30 @@ itersolve_gen_steps_range(struct stepper_kinematics *sk, struct move *m
 
     // could be invoking shaper_xy_calc_position...
     double t = calc_position_cb(sk, m, start);
+#ifdef DEBUG
     printf("    do gen steps %d: t=%g[%g->%g] start_v=%g accel=%g jerk=%g start_pos=%g,%g,%g commanded_pos=%g astartpos=%g\n", sk->sc->oid,
            m->move_t, start, end, m->start_v, m->half_accel*2.0, m->sixth_jerk*6.0,
            m->start_pos.x, m->start_pos.y, m->start_pos.z, sk->commanded_pos, t);
+#endif
     if (end <= 0) {
+#ifdef DEBUG
       printf("       SKIPPING cuz negative end time\n");
+#endif
       return 0;
     }
     if (end <= start) {
+#ifdef DEBUG
       printf("       SKIPPING cuz end before start\n");
+#endif
       return 0;
     }
     double instant_steps = fabs(t - sk->commanded_pos) / half_step;
     if (instant_steps > 4.0) {
       // We're asking for instantaneous jump - I don't see how that could work.
+#ifdef DEBUG
       printf("      j-itersolve_gen_steps_range %d: Instantaneous position change by %g steps: move.start=%g commanded_pos=%g half_step=%g\n",
              sk->sc->oid, instant_steps, t, sk->commanded_pos, half_step);
+#endif
       errorf("itersolve_gen_steps_range %d: Instantaneous position change by %g steps: move.start=%g commanded_pos=%g half_step=%g\n",
              sk->sc->oid, instant_steps, t, sk->commanded_pos, half_step);
       return ERROR_RET;
@@ -176,11 +186,13 @@ itersolve_gen_steps_range(struct stepper_kinematics *sk, struct move *m
     }
     sk->commanded_pos = target - (sdir ? half_step : -half_step);
     if (!check_active(sk, m) && stepCount > 0) {
+#ifdef DEBUG
       printf("      WARNING j-itersolve_gen_steps_range %d: inactive move generated stepCount=%d start_pos=%g,%g,%g pt=%g mt=%g %g %g %g\n",
              sk->sc->oid, stepCount,
              m->start_pos.x, m->start_pos.y, m->start_pos.z,
              m->print_time, m->move_t, m->start_v, m->half_accel, m->sixth_jerk
              );
+#endif
     }
     if (sk->post_cb)
         sk->post_cb(sk);
@@ -211,7 +223,9 @@ itersolve_generate_steps(struct stepper_kinematics *sk, double flush_time)
            sk->sc->oid,
            flush_time, sk->last_flush_time);
   }
+#ifdef DEBUG
   printf("%d: start gen steps flush times %g -> %g\n", sk->sc->oid, sk->last_flush_time, flush_time);
+#endif
   double last_flush_time = sk->last_flush_time;
     sk->last_flush_time = flush_time;
     if (!sk->tq)
@@ -223,9 +237,11 @@ itersolve_generate_steps(struct stepper_kinematics *sk, double flush_time)
     double force_steps_time = sk->last_move_time + sk->gen_steps_post_active;
     int skip_count = 0;
     for (;;) {
+#ifdef DEBUG
       printf("gen steps %d: pt=%g t=%g start_v=%g accel=%g jerk=%g start_pos=%g,%g,%g axes_r=%g,%g,%g\n", sk->sc->oid,
              m->print_time, m->move_t, m->start_v, m->half_accel*2.0, m->sixth_jerk*6.0,
              m->start_pos.x, m->start_pos.y, m->start_pos.z, m->axes_r.x, m->axes_r.y, m->axes_r.z);
+#endif
       double move_start = m->print_time, move_end = move_start + m->move_t;
       //if (move_start >= flush_time) {
       //  printf("WARNING: oid=%d examining move in the future %g (%g vs %g)\n",
@@ -245,10 +261,12 @@ itersolve_generate_steps(struct stepper_kinematics *sk, double flush_time)
                 while (--skip_count && pm->print_time > abs_start)
                     pm = list_prev_entry(pm, node);
                 do {
+#ifdef DEBUG
                   printf("  gen steps prev move %d: pt=%g t=%g start_v=%g accel=%g jerk=%g start_pos=%g,%g\n", sk->sc->oid,
                          pm->print_time, pm->move_t, pm->start_v, pm->half_accel*2.0, pm->sixth_jerk*6.0,
                          pm->start_pos.x, pm->start_pos.y);
-                    int32_t ret = itersolve_gen_steps_range(sk, pm, abs_start
+#endif
+                  int32_t ret = itersolve_gen_steps_range(sk, pm, abs_start
                                                             , flush_time);
                     if (ret)
                         return ret;
@@ -256,7 +274,9 @@ itersolve_generate_steps(struct stepper_kinematics *sk, double flush_time)
                 } while (pm != m);
             }
             // Generate steps for this move
+#ifdef DEBUG
             printf("  gen steps this move %d t %g->%g\n", sk->sc->oid, last_flush_time, flush_time);
+#endif
             int32_t ret = itersolve_gen_steps_range(sk, m, last_flush_time
                                                     , flush_time);
             if (ret)
@@ -274,7 +294,9 @@ itersolve_generate_steps(struct stepper_kinematics *sk, double flush_time)
                 double abs_end = force_steps_time;
                 if (abs_end > flush_time)
                     abs_end = flush_time;
+#ifdef DEBUG
                 printf("  gen steps post move %d\n", sk->sc->oid);
+#endif
                 int32_t ret = itersolve_gen_steps_range(sk, m, last_flush_time
                                                         , abs_end);
                 if (ret)
@@ -351,7 +373,9 @@ itersolve_set_position(struct stepper_kinematics *sk
                        , double x, double y, double z)
 {
   double rez = itersolve_calc_position_from_coord(sk, x, y, z);
+#ifdef DEBUG
   printf("Setting commanded_pos to %g\n", rez);
+#endif
   sk->commanded_pos = rez;
 }
 

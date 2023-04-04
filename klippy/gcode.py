@@ -429,7 +429,7 @@ class GCodeIO:
         for dwell_idx in range(len(pending_commands)):
             if self.g4_r.match(pending_commands[dwell_idx]) is not None:
                 break
-        print("josh - _process_data2", len(pending_commands), dwell_idx)
+        logging.debug("josh - _process_data2 %d %d", len(pending_commands), dwell_idx)
         commands_to_process = pending_commands[0:dwell_idx + 1]
         # Handle case where multiple commands pending
         if self.is_processing_data or len(commands_to_process) > 1:

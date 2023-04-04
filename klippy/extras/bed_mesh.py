@@ -216,7 +216,7 @@ class BedMesh:
                                secs, start_accel, jerk,
                                ext_end_v, ext_start_accel, ext_jerk)
         else:
-            print('jmesh - ', newpos, speed, secs, start_accel, jerk)
+            logging.debug('jmesh - %g %g %g %g %g', newpos, speed, secs, start_accel, jerk)
             assert not start_accel and not jerk # make sure both are None or 0
             self.splitter.build_move(self.last_position, newpos, factor)
             currPos = self.last_position

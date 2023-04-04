@@ -42,7 +42,7 @@ class MCU_stepper:
         self._reset_cmd_tag = self._get_position_cmd = None
         self._active_callbacks = []
         ffi_main, ffi_lib = chelper.get_ffi()
-        #print("Stepper name=%s oid=%d" % (name, oid))
+        #logging.debug("Stepper name=%s oid=%d" % (name, oid))
         self._stepqueue = ffi_main.gc(ffi_lib.stepcompress_alloc(oid),
                                       ffi_lib.stepcompress_free)
         ffi_lib.stepcompress_set_invert_sdir(self._stepqueue, self._invert_dir)
@@ -53,7 +53,7 @@ class MCU_stepper:
         self._trapq = ffi_main.NULL
         self._mcu.get_printer().register_event_handler('klippy:connect',
                                                        self._query_mcu_position)
-        print("Created stepper ", self._oid, self._name)
+        logging.debug("Created stepper %s %s", self._oid, self._name)
     def get_mcu(self):
         return self._mcu
     def get_name(self, short=False):

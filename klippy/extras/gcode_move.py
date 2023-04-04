@@ -114,7 +114,7 @@ class GCodeMove:
             self.last_position = self.position_with_transform()
     def cmd_SET_MIN_Z(self, gcmd):
         self.gcode_min_z = gcmd.get_float('Z', None, minval=0.)
-        print("Setting min z to ", self.gcode_min_z)
+        logging.debug("Setting min z to %g", self.gcode_min_z)
     # G-Code movement commands
     def cmd_G1(self, gcmd):
         self.cmd_G1common(gcmd, False)
@@ -177,7 +177,7 @@ class GCodeMove:
                         raise gcmd.error("G7 param %s not allowed in G1/G0 command '%s'" % (prohibited, gcmd.get_commandline(),))
                
         except ValueError as e:
-            print(e)
+            logging.debug(e)
             raise gcmd.error("Unable to parse move '%s'"
                              % (gcmd.get_commandline(),))
         if self.gcode_min_z is not None and self.last_position[2] < self.gcode_min_z:

@@ -38,7 +38,7 @@ class SafeZHoming:
         # I think pos[2] reflects the last probe, but rez[2] reflect the average
         self.gcode.respond_info("jprobe: head z move since probe: %g (%g vs %g)" % (
             pos[2] - rez[2], pos[2], rez[2]))
-        #print("jprobe: ", rez, probe.z_offset, pos[2])
+        #logging.debug("jprobe: ", rez, probe.z_offset, pos[2])
         if abs(pos[2] - rez[2]) > 1.0:
             raise gcmd.error("Somehow head moved after probing: %g vs %g" % (pos[2], rez[2]))
         pos[2] = probe.z_offset + (pos[2] - rez[2])
