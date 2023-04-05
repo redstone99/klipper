@@ -36,6 +36,7 @@ class GCodeMove:
         gcode.register_command('M114', self.cmd_M114, True)
         gcode.register_command('GET_POSITION', self.cmd_GET_POSITION, True,
                                desc=self.cmd_GET_POSITION_help)
+        gcode.register_command('SET_MIN_Z', self.cmd_SET_MIN_Z)
         self.Coord = gcode.Coord
         # G-Code coordinate manipulation
         self.absolute_coord = self.absolute_extrude = True
@@ -49,6 +50,7 @@ class GCodeMove:
         self.saved_states = {}
         self.move_transform = self.move_with_transform = None
         self.position_with_transform = (lambda: [0., 0., 0., 0.])
+        self.gcode_min_z = None # Prevent gcode commands to z lower than this
     def _handle_ready(self):
         self.is_printer_ready = True
         if self.move_transform is None:
@@ -109,6 +111,9 @@ class GCodeMove:
     def reset_last_position(self):
         if self.is_printer_ready:
             self.last_position = self.position_with_transform()
+    def cmd_SET_MIN_Z(self, gcmd):
+        self.gcode_min_z = gcmd.get_float('Z', None, minval=0.)
+        #logging.debug("Setting min z to %g", self.gcode_min_z)
     # G-Code movement commands
     def cmd_G1(self, gcmd):
         # Move
@@ -140,6 +145,8 @@ class GCodeMove:
         except ValueError as e:
             raise gcmd.error("Unable to parse move '%s'"
                              % (gcmd.get_commandline(),))
+        if self.gcode_min_z is not None and self.last_position[2] < self.gcode_min_z:
+            raise gcmd.error("Move below minimum z prohibited")
         self.move_with_transform(self.last_position, self.speed)
     # G-Code coordinate manipulation
     def cmd_G20(self, gcmd):
