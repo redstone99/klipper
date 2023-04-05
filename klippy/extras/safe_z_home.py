@@ -19,11 +19,32 @@ class SafeZHoming:
         self.gcode = self.printer.lookup_object('gcode')
         self.prev_G28 = self.gcode.register_command("G28", None)
         self.gcode.register_command("G28", self.cmd_G28)
+        self.gcode.register_command('JPROBE', self.cmd_JProbe)
 
         if config.has_section("homing_override"):
             raise config.error("homing_override and safe_z_homing cannot"
                                +" be used simultaneously")
 
+    def cmd_JProbe(self, gcmd):
+        toolhead = self.printer.lookup_object('toolhead')
+        probe = self.printer.lookup_object('probe')
+        # Home Z
+        self.gcode.run_script_from_command('G28 Z')
+        pos = toolhead.get_position()
+        toolhead.manual_move([None, None, pos[2] + probe.sample_retract_dist], probe.speed)
+        # Now do more detailed probing
+        rez = probe.run_probe(gcmd)
+        pos = toolhead.get_position()
+        # I think pos[2] reflects the last probe, but rez[2] reflect the average
+        self.gcode.respond_info("jprobe: head z move since probe: %g (%g vs %g)" % (
+            pos[2] - rez[2], pos[2], rez[2]))
+        #logging.debug("jprobe: ", rez, probe.z_offset, pos[2])
+        if abs(pos[2] - rez[2]) > 1.0:
+            raise gcmd.error("Somehow head moved after probing: %g vs %g" % (pos[2], rez[2]))
+        pos[2] = probe.z_offset + (pos[2] - rez[2])
+        assert pos[2] >= 0
+        toolhead.set_position(pos, homing_axes=[2])
+        toolhead.manual_move([None, None, pos[2] + probe.sample_retract_dist], self.z_hop_speed)
     def cmd_G28(self, gcmd):
         toolhead = self.printer.lookup_object('toolhead')
 
