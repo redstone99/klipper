@@ -34,7 +34,7 @@ class SafeZHoming:
         probe_session = pprobe.start_probe_session(gcmd)
         self.gcode.run_script_from_command('G28 Z')
         pos = toolhead.get_position()
-        toolhead.manual_move([None, None, pos[2] + probe_session.sample_retract_dist], probe.speed)
+        toolhead.manual_move([None, None, pos[2] + probe_session.sample_retract_dist], probe_session.speed)
         # Now do more detailed probing
         probe_session.run_probe(gcmd)
         rez = probe_session.pull_probed_results()
