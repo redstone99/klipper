@@ -39,7 +39,8 @@ class SafeZHoming:
         probe_session.run_probe(gcmd)
         rez = probe_session.pull_probed_results()
         assert len(rez) == 1, rez # Each run_probe() generates a single result
-        avgZpos = rez[0]
+        assert len(rez[0]) == 2, rez
+        avgZpos = rez[0][2]
         
         pos = toolhead.get_position()
         # I think pos[2] reflects the last probe, but avgZpos reflects the average
