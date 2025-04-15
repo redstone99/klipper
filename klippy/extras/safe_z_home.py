@@ -39,7 +39,7 @@ class SafeZHoming:
         probe_session.run_probe(gcmd)
         rez = probe_session.pull_probed_results()
         assert len(rez) == 1, rez # Each run_probe() generates a single result
-        assert len(rez[0]) == 2, rez
+        assert len(rez[0]) == 3, rez[0]
         avgZpos = rez[0][2]
         
         pos = toolhead.get_position()
