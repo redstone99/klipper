@@ -27,24 +27,33 @@ class SafeZHoming:
 
     def cmd_JProbe(self, gcmd):
         toolhead = self.printer.lookup_object('toolhead')
-        probe = self.printer.lookup_object('probe')
+        pprobe = self.printer.lookup_object('probe')
+        x_offset, y_offset, z_offset = pprobe.get_offsets()
+
         # Home Z
+        probe_session = pprobe.start_probe_session(gcmd)
         self.gcode.run_script_from_command('G28 Z')
         pos = toolhead.get_position()
-        toolhead.manual_move([None, None, pos[2] + probe.sample_retract_dist], probe.speed)
+        toolhead.manual_move([None, None, pos[2] + probe_session.sample_retract_dist], probe.speed)
         # Now do more detailed probing
-        rez = probe.run_probe(gcmd)
+        probe_session.run_probe(gcmd)
+        rez = probe_session.pull_probed_results()
+        assert len(rez) == 1, rez # Each run_probe() generates a single result
+        avgZpos = rez[0]
+        
         pos = toolhead.get_position()
-        # I think pos[2] reflects the last probe, but rez[2] reflect the average
+        # I think pos[2] reflects the last probe, but avgZpos reflects the average
         self.gcode.respond_info("jprobe: head z move since probe: %g (%g vs %g)" % (
-            pos[2] - rez[2], pos[2], rez[2]))
+            pos[2] - avgZpos, pos[2], avgZpos))
         #logging.debug("jprobe: ", rez, probe.z_offset, pos[2])
-        if abs(pos[2] - rez[2]) > 1.0:
-            raise gcmd.error("Somehow head moved after probing: %g vs %g" % (pos[2], rez[2]))
-        pos[2] = probe.z_offset + (pos[2] - rez[2])
+        if abs(pos[2] - avgZpos) > 1.0:
+            raise gcmd.error("Somehow head moved after probing: %g vs %g" % (pos[2], avgZpos))
+        pos[2] = z_offset + (pos[2] - avgZpos)
         assert pos[2] >= 0
         toolhead.set_position(pos, homing_axes=[2])
-        toolhead.manual_move([None, None, pos[2] + probe.sample_retract_dist], self.z_hop_speed)
+        toolhead.manual_move([None, None, pos[2] + probe_session.sample_retract_dist], self.z_hop_speed)
+        probe_session.end_probe_session()
+        
     def cmd_G28(self, gcmd):
         toolhead = self.printer.lookup_object('toolhead')
 
